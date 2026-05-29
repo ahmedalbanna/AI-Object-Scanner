@@ -635,6 +635,37 @@ fun HistoryTab(
     onReportSelected: (ScanReport) -> Unit,
     onDeleteReport: (ScanReport) -> Unit
 ) {
+    var searchQuery by remember { mutableStateOf("") }
+    var sortByDate by remember { mutableStateOf(true) } // true: Date, false: Name
+    var sortAscending by remember { mutableStateOf(false) } // true: asc (Older / A-Z), false: desc (Newer / Z-A)
+
+    val filteredAndSortedReports = remember(reports, searchQuery, sortByDate, sortAscending) {
+        val filtered = if (searchQuery.isBlank()) {
+            reports
+        } else {
+            reports.filter {
+                it.title.contains(searchQuery, ignoreCase = true) ||
+                it.category.contains(searchQuery, ignoreCase = true) ||
+                it.description.contains(searchQuery, ignoreCase = true) ||
+                it.primaryMaterial.contains(searchQuery, ignoreCase = true)
+            }
+        }
+
+        if (sortByDate) {
+            if (sortAscending) {
+                filtered.sortedBy { it.timestamp }
+            } else {
+                filtered.sortedByDescending { it.timestamp }
+            }
+        } else {
+            if (sortAscending) {
+                filtered.sortedBy { it.title.lowercase() }
+            } else {
+                filtered.sortedByDescending { it.title.lowercase() }
+            }
+        }
+    }
+
     if (reports.isEmpty()) {
         Column(
             modifier = Modifier
@@ -672,118 +703,268 @@ fun HistoryTab(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                Text(
-                    text = "Scanned Archive History",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp),
-                    color = Color.White,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-            }
-
-            items(reports) { report ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(ObsidianSurface)
-                        .border(1.dp, BorderColor, RoundedCornerShape(12.dp))
-                        .clickable { onReportSelected(report) }
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.padding(bottom = 8.dp)
                 ) {
+                    Text(
+                        text = "Scanned Archive History",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp),
+                        color = Color.White
+                    )
+
+                    // Search input
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("Search by name or category...", color = DarkMuted) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = NeonCyan) },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Default.Clear, contentDescription = "Clear search", tint = DarkMuted)
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = NeonCyan,
+                            unfocusedBorderColor = BorderColor,
+                            focusedContainerColor = ObsidianSurface,
+                            unfocusedContainerColor = ObsidianSurface
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    // Sorting controllers
                     Row(
-                        modifier = Modifier.padding(12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Thumnail image view
-                        Box(
-                            modifier = Modifier
-                                .size(70.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(ObsidianCard)
+                        Text(
+                            text = "Sort by:",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = DarkMuted
+                        )
+
+                        // Date sorting chip using AssistChip
+                        AssistChip(
+                            onClick = {
+                                if (sortByDate) {
+                                    sortAscending = !sortAscending
+                                } else {
+                                    sortByDate = true
+                                    sortAscending = false // Newer first
+                                }
+                            },
+                            label = {
+                                Text(
+                                    text = if (sortByDate) {
+                                        if (sortAscending) "Date (Older)" else "Date (Newer)"
+                                    } else "Date",
+                                    fontWeight = if (sortByDate) FontWeight.Bold else FontWeight.Normal
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = if (sortByDate) {
+                                        if (sortAscending) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward
+                                    } else Icons.Default.Sort,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = if (sortByDate) NeonCyan.copy(alpha = 0.15f) else ObsidianSurface,
+                                labelColor = if (sortByDate) NeonCyan else Color.White,
+                                leadingIconContentColor = if (sortByDate) NeonCyan else DarkMuted
+                            ),
+                            border = BorderStroke(
+                                width = 1.dp,
+                                color = if (sortByDate) NeonCyan else BorderColor
+                            )
+                        )
+
+                        // Name sorting chip using AssistChip
+                        AssistChip(
+                            onClick = {
+                                if (!sortByDate) {
+                                    sortAscending = !sortAscending
+                                } else {
+                                    sortByDate = false
+                                    sortAscending = true // A-Z
+                                }
+                            },
+                            label = {
+                                Text(
+                                    text = if (!sortByDate) {
+                                        if (sortAscending) "Name (A-Z)" else "Name (Z-A)"
+                                    } else "Name",
+                                    fontWeight = if (!sortByDate) FontWeight.Bold else FontWeight.Normal
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = if (!sortByDate) {
+                                        if (sortAscending) Icons.Default.SortByAlpha else Icons.Default.ArrowDownward
+                                    } else Icons.Default.SortByAlpha,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = if (!sortByDate) NeonCyan.copy(alpha = 0.15f) else ObsidianSurface,
+                                labelColor = if (!sortByDate) NeonCyan else Color.White,
+                                leadingIconContentColor = if (!sortByDate) NeonCyan else DarkMuted
+                            ),
+                            border = BorderStroke(
+                                width = 1.dp,
+                                color = if (!sortByDate) NeonCyan else BorderColor
+                            )
+                        )
+                    }
+                }
+            }
+
+            if (filteredAndSortedReports.isEmpty()) {
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 48.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                         Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = DarkMuted,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "No matching scans found",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Try refining your search keyword",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = DarkMuted
+                        )
+                    }
+                }
+            } else {
+                items(filteredAndSortedReports) { report ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(ObsidianSurface)
+                            .border(1.dp, BorderColor, RoundedCornerShape(12.dp))
+                            .clickable { onReportSelected(report) }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            if (report.imageUrl != null) {
-                                val file = File(report.imageUrl)
-                                if (file.exists()) {
-                                    val bitmap = BitmapFactory.decodeFile(file.absolutePath)
-                                    if (bitmap != null) {
-                                        Image(
-                                            bitmap = bitmap.asImageBitmap(),
+                            // Thumbnail image view
+                            Box(
+                                modifier = Modifier
+                                    .size(70.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(ObsidianCard)
+                            ) {
+                                if (report.imageUrl != null) {
+                                    val file = File(report.imageUrl)
+                                    if (file.exists()) {
+                                        val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+                                        if (bitmap != null) {
+                                            Image(
+                                                bitmap = bitmap.asImageBitmap(),
+                                                contentDescription = report.title,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+                                        }
+                                    } else {
+                                        // Remote sample URL
+                                        AsyncImage(
+                                            model = report.imageUrl,
                                             contentDescription = report.title,
                                             contentScale = ContentScale.Crop,
                                             modifier = Modifier.fillMaxSize()
                                         )
                                     }
                                 } else {
-                                    // Remote sample URL
-                                    AsyncImage(
-                                        model = report.imageUrl,
-                                        contentDescription = report.title,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize()
+                                    Icon(
+                                        imageVector = Icons.Default.BrokenImage,
+                                        contentDescription = null,
+                                        tint = DarkMuted,
+                                        modifier = Modifier.align(Alignment.Center)
                                     )
                                 }
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.BrokenImage,
-                                    contentDescription = null,
-                                    tint = DarkMuted,
-                                    modifier = Modifier.align(Alignment.Center)
-                                )
                             }
-                        }
 
-                        Spacer(modifier = Modifier.width(16.dp))
+                            Spacer(modifier = Modifier.width(16.dp))
 
-                        // Details columns
-                        Column(
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            // Details columns
+                            Column(
+                                modifier = Modifier.weight(1f)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(NeonCyan.copy(alpha = 0.15f))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(NeonCyan.copy(alpha = 0.15f))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = report.category.uppercase(),
+                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp, fontWeight = FontWeight.Bold),
+                                            color = NeonCyan
+                                        )
+                                    }
                                     Text(
-                                        text = report.category.uppercase(),
-                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp, fontWeight = FontWeight.Bold),
-                                        color = NeonCyan
+                                        text = SimpleDateFormat("MMM dd, yyyy • HH:mm", Locale.getDefault()).format(Date(report.timestamp)),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = DarkMuted
                                     )
                                 }
+                                Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = SimpleDateFormat("MMM dd, yyyy • HH:mm", Locale.getDefault()).format(Date(report.timestamp)),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = DarkMuted
+                                    text = report.title,
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = report.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = DarkMuted,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = report.title,
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                color = Color.White,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = report.description,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = DarkMuted,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
 
-                        // Trash option
-                        IconButton(onClick = { onDeleteReport(report) }) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Delete entry",
-                                tint = Color(0xFFFF5252).copy(alpha = 0.8f)
-                            )
+                            // Trash option
+                            IconButton(onClick = { onDeleteReport(report) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete entry",
+                                    tint = Color(0xFFFF5252).copy(alpha = 0.8f)
+                                )
+                            }
                         }
                     }
                 }
