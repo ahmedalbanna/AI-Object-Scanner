@@ -1,0 +1,6 @@
+{
+  "name": "AI Object Scanner",
+  "description": "Scan and identify objects using your camera or gallery to generate detailed analysis reports powered by Gemini AI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
