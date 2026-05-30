@@ -2168,13 +2168,13 @@ fun ReportDetailsModal(
                             Text("Save Changes", fontWeight = FontWeight.Bold)
                         }
                     } else {
-                        IconButton(
+                        OutlinedButton(
                             onClick = onDelete,
-                            modifier = Modifier
-                                .background(Color(0x11FF5252), RoundedCornerShape(10.dp))
-                                .border(1.dp, Color(0xFFFF5252).copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, Color(0xFFFF5252).copy(alpha = 0.3f)),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF5252))
                         ) {
-                            Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete", tint = Color(0xFFFF5252))
+                            Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete")
                         }
 
                         Button(
