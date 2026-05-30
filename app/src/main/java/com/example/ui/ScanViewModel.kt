@@ -251,7 +251,9 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                 "  \"color\": \"Primary and accent colors\",\n" +
                 "  \"estimatedValue\": \"Fair estimated price range or utility value (e.g. '$15 - $25 USD')\",\n" +
                 "  \"weight\": \"Rough estimation of weight (e.g., '350g' or '1.2kg')\",\n" +
-                "  \"description\": \"A professional, insightful 3-4 sentence evaluation highlighting historical context, key uses, maintenance guidelines, or design characteristics.\"\n" +
+                "  \"description\": \"A professional, insightful 3-4 sentence evaluation highlighting historical context, key uses, and design characteristics.\",\n" +
+                "  \"dynamicDetail\": \"A context-specific field. If it's a plant, include care instructions (Water/Sun). If a tool, its primary safety tip. If tech, its most notable technical spec. If a landmark, its era.\",\n" +
+                "  \"knowledgeBit\": \"An interesting trivia fact or unique piece of information about this specific item or its origins.\"\n" +
                 "}"
 
         val request = GeminiRequest(
@@ -294,6 +296,16 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
             val estimatedValue = jsonObject.optString("estimatedValue", "Unspecified")
             val weight = jsonObject.optString("weight", "Unspecified")
             val description = jsonObject.optString("description", "No narrative detailed analysis returned.")
+            val dynamicDetail = jsonObject.optString("dynamicDetail", "")
+            val knowledgeBit = jsonObject.optString("knowledgeBit", "")
+
+            // Enrichment from Wikipedia
+            val wikiSummary = fetchWikipediaDetails(title)
+            val finalDescription = if (!wikiSummary.isNullOrBlank()) {
+                "$description\n\n[Wikipedia Snippet]: $wikiSummary"
+            } else {
+                description
+            }
 
             val report = ScanReport(
                 title = title,
@@ -305,7 +317,9 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                 color = color,
                 estimatedValue = estimatedValue,
                 weight = weight,
-                description = description
+                description = finalDescription,
+                dynamicDetail = dynamicDetail,
+                knowledgeBit = knowledgeBit
             )
 
             // Persist report into Room database

@@ -1760,6 +1760,64 @@ fun ReportDetailsModal(
                             }
                         }
 
+                        // Dynamic context details
+                        if (report.dynamicDetail.isNotBlank()) {
+                            item {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(
+                                        text = "DYNAMIC CONTEXTUAL DETAIL",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
+                                        color = NeonCyan
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(NeonCyan.copy(alpha = 0.05f))
+                                            .border(1.dp, NeonCyan.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
+                                            .padding(14.dp)
+                                    ) {
+                                        Text(
+                                            text = report.dynamicDetail,
+                                            style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
+                                            color = Color.White
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Knowledge bit
+                        if (report.knowledgeBit.isNotBlank()) {
+                            item {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(
+                                        text = "KNOWLEDGE BIT & TRIVIA",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
+                                        color = NeonCyan
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(ObsidianCard)
+                                            .border(1.dp, BorderColor, RoundedCornerShape(12.dp))
+                                            .padding(14.dp)
+                                    ) {
+                                        Row(verticalAlignment = Alignment.Top) {
+                                            Icon(Icons.Default.Lightbulb, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(18.dp).padding(top = 2.dp))
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Text(
+                                                text = report.knowledgeBit,
+                                                style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp),
+                                                color = Color.White
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         // User Notes display
                         if (report.userNotes.isNotBlank()) {
                             item {
@@ -2063,6 +2121,8 @@ fun ComparisonDialog(
                             MetricHeader("Color")
                             MetricHeader("Value")
                             MetricHeader("Weight")
+                            MetricHeader("Context Detail")
+                            MetricHeader("Trivia")
                         }
 
                         // Data Columns
@@ -2116,6 +2176,8 @@ fun ComparisonDialog(
                                 MetricValue(report.color)
                                 MetricValue(report.estimatedValue)
                                 MetricValue(report.weight)
+                                MetricValue(report.dynamicDetail)
+                                MetricValue(report.knowledgeBit)
                             }
                         }
                     }

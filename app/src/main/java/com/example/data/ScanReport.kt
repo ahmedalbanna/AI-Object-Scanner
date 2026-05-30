@@ -20,6 +20,8 @@ data class ScanReport(
     val userTags: String = "",
     val userNotes: String = "",
     val userRating: Int = 0, // 0-5 user rating for correctness flag
-    val collectionName: String? = null // Collection grouping
+    val collectionName: String? = null, // Collection grouping
+    val dynamicDetail: String = "", // Context-specific (e.g. Care instructions)
+    val knowledgeBit: String = "" // Interesting fact
 )
 
