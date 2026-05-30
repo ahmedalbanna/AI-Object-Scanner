@@ -239,53 +239,61 @@ fun ScannerUi(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
         ) {
             // Tab Contents
-            Crossfade(targetState = activeTab, label = "tab_switch") { tab ->
-                when (tab) {
-                    0 -> ScannerTab(
-                        viewModel = viewModel,
-                        hasCameraPermission = hasCameraPermission,
-                        onRequestPermission = {
-                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                            locationPermissionLauncher.launch(
-                                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-                            )
-                        },
-                        onGalleryPick = {
-                            galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                        },
-                        onReportGenerated = { report ->
-                            selectedReportForDetails = report
-                        },
-                        captureLocation = ::captureLocation
-                    )
-                    1 -> HistoryTab(
-                        viewModel = viewModel,
-                        reports = reports,
-                        onReportSelected = { selectedReportForDetails = it },
-                        onDeleteReport = { viewModel.deleteReport(it) }
-                    )
-                    2 -> SettingsTab(
-                        viewModel = viewModel,
-                        currentKey = customKey,
-                        onBack = { activeTab = 0 }
-                    )
-                }
-            }
-
-            // Report Details Sheet overlay
-            selectedReportForDetails?.let { report ->
-                ReportDetailsModal(
-                    report = report,
-                    viewModel = viewModel,
-                    onDismiss = { selectedReportForDetails = null },
-                    onDelete = {
-                        viewModel.deleteReport(report)
-                        selectedReportForDetails = null
+            Box(modifier = Modifier.padding(innerPadding)) {
+                Crossfade(targetState = activeTab, label = "tab_switch") { tab ->
+                    when (tab) {
+                        0 -> ScannerTab(
+                            viewModel = viewModel,
+                            hasCameraPermission = hasCameraPermission,
+                            onRequestPermission = {
+                                cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                                locationPermissionLauncher.launch(
+                                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+                                )
+                            },
+                            onGalleryPick = {
+                                galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            },
+                            onReportGenerated = { report ->
+                                selectedReportForDetails = report
+                            },
+                            captureLocation = ::captureLocation
+                        )
+                        1 -> HistoryTab(
+                            viewModel = viewModel,
+                            reports = reports,
+                            onReportSelected = { selectedReportForDetails = it },
+                            onDeleteReport = { viewModel.deleteReport(it) }
+                        )
+                        2 -> SettingsTab(
+                            viewModel = viewModel,
+                            currentKey = customKey,
+                            onBack = { activeTab = 0 }
+                        )
                     }
-                )
+                }
+
+                // Report Details Full Screen overlay (Now inside innerPadding)
+                AnimatedVisibility(
+                    visible = selectedReportForDetails != null,
+                    enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                    exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    selectedReportForDetails?.let { report ->
+                        ReportDetailsScreen(
+                            report = report,
+                            viewModel = viewModel,
+                            onDismiss = { selectedReportForDetails = null },
+                            onDelete = {
+                                viewModel.deleteReport(report)
+                                selectedReportForDetails = null
+                            }
+                        )
+                    }
+                }
             }
 
             // Scanning Processing Overlay
@@ -407,7 +415,7 @@ fun ScannerTab(
                             horizontalAlignment = Alignment.End
                         ) {
                             IconButton(onClick = { isCameraActive = false }) {
-                                Icon(Icons.Default.Close, contentDescription = "Close Camera", tint = Color.White)
+                                Icon(Icons.Default.Close, contentDescription = "Close Camera", tint = MaterialTheme.colorScheme.onPrimary)
                             }
                             
                             FloatingActionButton(
@@ -483,19 +491,22 @@ fun ScannerTab(
                         Icon(
                             imageVector = Icons.Default.CameraAlt,
                             contentDescription = null,
-                            tint = DarkMuted,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(56.dp)
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             text = "Camera Access Required",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onBackground
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(
                             onClick = onRequestPermission,
-                            colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = ObsidianBg)
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            )
                         ) {
                             Text("Grant Permission", fontWeight = FontWeight.Bold)
                         }
@@ -508,13 +519,13 @@ fun ScannerTab(
         if (gatheredImagePaths.isNotEmpty()) {
             item {
                 Column(
-                    modifier = Modifier.fillMaxWidth().background(ObsidianSurface, RoundedCornerShape(12.dp)).padding(12.dp),
+                    modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)).padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
                         text = "GATHERED PERSPECTIVES (${gatheredImagePaths.size})",
                         style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.sp, fontWeight = FontWeight.Bold),
-                        color = NeonCyan
+                        color = MaterialTheme.colorScheme.primary
                     )
 
                     LazyRow(
@@ -545,8 +556,8 @@ fun ScannerTab(
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("Add specific notes or suspected characteristics...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
                             unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                             focusedContainerColor = MaterialTheme.colorScheme.background,
@@ -599,8 +610,8 @@ fun ScannerTab(
                     onClick = {
                         galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     },
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonCyan),
-                    border = BorderStroke(1.dp, NeonCyan),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -622,14 +633,14 @@ fun ScannerTab(
                 Icon(
                     imageVector = Icons.Default.AutoAwesome,
                     contentDescription = null,
-                    tint = NeonCyan,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "CATALOG SAMPLES FOR EMULATOR TESTING",
                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.onBackground
                 )
             }
         }
@@ -894,7 +905,7 @@ fun HistoryTab(
                     Text(
                         text = "Scanned Archive History",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp),
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onBackground
                     )
 
                     TextButton(
@@ -934,8 +945,8 @@ fun HistoryTab(
                         },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
                             unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                             focusedContainerColor = MaterialTheme.colorScheme.surface,
@@ -1032,7 +1043,7 @@ fun HistoryTab(
                             },
                             colors = AssistChipDefaults.assistChipColors(
                                 containerColor = if (sortByDate) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface,
-                                labelColor = if (sortByDate) MaterialTheme.colorScheme.primary else Color.White,
+                                labelColor = if (sortByDate) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                                 leadingIconContentColor = if (sortByDate) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                             ),
                             border = BorderStroke(
@@ -1589,618 +1600,393 @@ fun ErrorOverlayDialog(
 }
 
 // ==========================================
-// ANALYSIS REPORT MODAL COMPONENT
+// ANALYSIS REPORT SCREEN COMPONENT
 // ==========================================
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReportDetailsModal(
+fun ReportDetailsScreen(
     report: ScanReport,
     viewModel: ScanViewModel,
     onDismiss: () -> Unit,
     onDelete: () -> Unit
 ) {
     val context = LocalContext.current
-    val allCollections by viewModel.allCollections.collectAsState()
-    
     var isEditing by remember { mutableStateOf(false) }
     var editedTags by remember { mutableStateOf(report.userTags) }
     var editedNotes by remember { mutableStateOf(report.userNotes) }
     var editedRating by remember { mutableIntStateOf(report.userRating) }
     var selectedCollection by remember { mutableStateOf(report.collectionName) }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.8f))
-            .clickable { onDismiss() },
-        contentAlignment = Alignment.Center
+    val allCollections by viewModel.allCollections.collectAsState(initial = emptyList())
+
+    Surface(
+        color = MaterialTheme.colorScheme.background,
+        modifier = Modifier.fillMaxSize()
     ) {
-        Card(
-            colors = CardDefaults.cardColors(containerColor = ObsidianSurface),
-            border = BorderStroke(1.dp, BorderColor),
-            shape = RoundedCornerShape(20.dp),
-            modifier = Modifier
-                .fillMaxHeight(0.85f)
-                .width(360.dp)
-                .clickable(enabled = false) {} // block click propagation
-        ) {
-            Column(
-                modifier = Modifier.fillMaxSize()
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Enhanced Custom Top Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Header Image
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp)
-                        .background(ObsidianCard)
-                ) {
-                    if (report.imageUrl != null) {
-                        AsyncImage(
-                            model = report.imageUrl,
-                            contentDescription = report.title,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.BrokenImage, contentDescription = null, tint = DarkMuted, modifier = Modifier.size(48.dp))
-                        }
-                    }
-
-                    // Floating Category tag label
-                    Box(
-                        modifier = Modifier
-                            .padding(12.dp)
-                            .align(Alignment.TopEnd)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color.Black.copy(alpha = 0.7f))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = report.category.uppercase(),
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = NeonCyan)
-                        )
-                    }
-
-                    // Share button
-                    IconButton(
-                        onClick = {
-                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_SUBJECT, "AI Object Scan: ${report.title}")
-                                putExtra(Intent.EXTRA_TEXT, viewModel.formatReportForSharing(report))
-                            }
-                            context.startActivity(Intent.createChooser(shareIntent, "Share Scan Report"))
-                        },
-                        modifier = Modifier
-                            .padding(12.dp)
-                            .align(Alignment.TopStart)
-                            .background(Color.Black.copy(alpha = 0.6f), CircleShape)
-                    ) {
-                        Icon(Icons.Default.Share, contentDescription = "Share", tint = NeonCyan, modifier = Modifier.size(20.dp))
-                    }
-
-                    // Gradient under title
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(60.dp)
-                            .align(Alignment.BottomStart)
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(Color.Transparent, ObsidianBg),
-                                    startY = 0f,
-                                    endY = 120f
-                                )
-                            )
+                IconButton(onClick = onDismiss) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
-
-                // Scrollable details column
-                LazyColumn(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    item {
-                        Column {
-                            Text(
-                                text = report.title,
-                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                color = Color.White
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Analysis Timestamp: " + SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(report.timestamp)),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = DarkMuted
-                            )
-                            
-                            if (report.latitude != null && report.longitude != null) {
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(14.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = String.format(Locale.US, "%.4f, %.4f", report.latitude, report.longitude),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = NeonCyan
-                                    )
-                                }
-                            }
-                            
-                            if (selectedCollection != null) {
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Folder, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(14.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = selectedCollection ?: "Untracked",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                        color = NeonCyan
-                                    )
-                                }
-                            }
+                Text(
+                    text = if (isEditing) "EDIT SCAN" else report.title.uppercase(),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                        fontFamily = OrbitronFont
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                
+                if (!isEditing) {
+                    IconButton(onClick = {
+                        val shareIntent = Intent().apply {
+                            action = Intent.ACTION_SEND
+                            putExtra(Intent.EXTRA_TEXT, "Object AI Analysis: ${report.title}\n${report.description}")
+                            type = "text/plain"
                         }
+                        context.startActivity(Intent.createChooser(shareIntent, "Share Report"))
+                    }) {
+                        Icon(Icons.Default.Share, contentDescription = "Share", tint = MaterialTheme.colorScheme.primary)
                     }
-
-                    if (isEditing) {
-                        item {
-                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text(
-                                    text = "EDIT SCAN METADATA",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
-                                    color = NeonCyan
-                                )
-                                
-                                // Rating
-                                Column {
-                                    Text("Correctness Rating", style = MaterialTheme.typography.labelSmall, color = DarkMuted)
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Row {
-                                        for (i in 1..5) {
-                                            IconButton(onClick = { editedRating = i }, modifier = Modifier.size(32.dp)) {
-                                                Icon(
-                                                    imageVector = if (i <= editedRating) Icons.Default.Star else Icons.Default.StarOutline,
-                                                    contentDescription = null,
-                                                    tint = if (i <= editedRating) Color(0xFFFFD700) else DarkMuted
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                                
-                                // Collection
-                                Column {
-                                    Text("Assign to Collection", style = MaterialTheme.typography.labelSmall, color = DarkMuted)
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        item {
-                                            FilterChip(
-                                                selected = selectedCollection == null,
-                                                onClick = { selectedCollection = null },
-                                                label = { Text("None") },
-                                                colors = FilterChipDefaults.filterChipColors(
-                                                    selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
-                                                    selectedLabelColor = NeonCyan
-                                                )
-                                            )
-                                        }
-                                        items(allCollections) { collection ->
-                                            FilterChip(
-                                                selected = selectedCollection == collection,
-                                                onClick = { selectedCollection = collection },
-                                                label = { Text(collection) },
-                                                colors = FilterChipDefaults.filterChipColors(
-                                                    selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
-                                                    selectedLabelColor = NeonCyan
-                                                )
-                                            )
-                                        }
-                                        item {
-                                            var showAddDialog by remember { mutableStateOf(false) }
-                                            AssistChip(
-                                                onClick = { showAddDialog = true },
-                                                label = { Text("New +") },
-                                                colors = AssistChipDefaults.assistChipColors(labelColor = NeonCyan)
-                                            )
-                                            if (showAddDialog) {
-                                                var newCollName by remember { mutableStateOf("") }
-                                                AlertDialog(
-                                                    onDismissRequest = { showAddDialog = false },
-                                                    title = { Text("New Collection") },
-                                                    text = {
-                                                        OutlinedTextField(
-                                                            value = newCollName,
-                                                            onValueChange = { newCollName = it },
-                                                            placeholder = { Text("Collection name") }
-                                                        )
-                                                    },
-                                                    confirmButton = {
-                                                        TextButton(onClick = {
-                                                            if (newCollName.isNotBlank()) {
-                                                                selectedCollection = newCollName
-                                                            }
-                                                            showAddDialog = false
-                                                        }) { Text("Create") }
-                                                    }
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
-                                OutlinedTextField(
-                                    value = editedTags,
-                                    onValueChange = { editedTags = it },
-                                    label = { Text("Custom Tags (comma separated)") },
-                                    placeholder = { Text("vintage, metal, office...") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        unfocusedTextColor = Color.White,
-                                        focusedTextColor = Color.White,
-                                        focusedBorderColor = NeonCyan,
-                                        unfocusedBorderColor = BorderColor
-                                    )
-                                )
-
-                                OutlinedTextField(
-                                    value = editedNotes,
-                                    onValueChange = { editedNotes = it },
-                                    label = { Text("Research Notes") },
-                                    placeholder = { Text("Observation details...") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    minLines = 3,
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        unfocusedTextColor = Color.White,
-                                        focusedTextColor = Color.White,
-                                        focusedBorderColor = NeonCyan,
-                                        unfocusedBorderColor = BorderColor
-                                    )
-                                )
-                            }
-                        }
-                    } else {
-                        // Rating & Tags Display
-                        if (report.userRating > 0 || report.userTags.isNotBlank()) {
-                            item {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    if (report.userRating > 0) {
-                                        Row {
-                                            repeat(report.userRating) {
-                                                Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(16.dp))
-                                            }
-                                        }
-                                    }
-                                    
-                                    if (report.userTags.isNotBlank()) {
-                                        Text(
-                                            text = report.userTags.split(",").joinToString(" #", prefix = "#"),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = NeonCyan,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        // Key properties grid layout
-                        item {
-                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Text(
-                                    text = "DETERMINED PHYSICAL ATTRIBUTES",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
-                                    color = NeonCyan
-                                )
-                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                                    PropertyBadge(Icons.Default.Widgets, "Primary Material", report.primaryMaterial, Modifier.weight(1f))
-                                    PropertyBadge(Icons.Default.Straighten, "Dimensions", report.dimensions, Modifier.weight(1f))
-                                }
-                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                                    PropertyBadge(Icons.Default.Palette, "Color Spectrum", report.color, Modifier.weight(1f))
-                                    PropertyBadge(Icons.Default.FitnessCenter, "Weight Density", report.weight, Modifier.weight(1f))
-                                }
-                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                                    PropertyBadge(Icons.Default.LocalMall, "Estimated Value", report.estimatedValue, Modifier.weight(1f))
-                                }
-                            }
-                        }
-
-                        // Insight narrative section
-                        item {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(
-                                    text = "MOLECULAR & CHARACTERISTIC REPORT",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
-                                    color = NeonCyan
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(ObsidianCard)
-                                        .border(1.dp, BorderColor, RoundedCornerShape(12.dp))
-                                        .padding(14.dp)
-                                ) {
-                                    Text(
-                                        text = report.description,
-                                        style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp),
-                                        color = Color.White
-                                    )
-                                }
-                            }
-                        }
-
-                        // Dynamic context details
-                        if (report.dynamicDetail.isNotBlank()) {
-                            item {
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text(
-                                        text = "DYNAMIC CONTEXTUAL DETAIL",
-                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
-                                        color = NeonCyan
-                                    )
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(NeonCyan.copy(alpha = 0.05f))
-                                            .border(1.dp, NeonCyan.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
-                                            .padding(14.dp)
-                                    ) {
-                                        Text(
-                                            text = report.dynamicDetail,
-                                            style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
-                                            color = Color.White
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        // Knowledge bit
-                        if (report.knowledgeBit.isNotBlank()) {
-                            item {
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text(
-                                        text = "KNOWLEDGE BIT & TRIVIA",
-                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
-                                        color = NeonCyan
-                                    )
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(ObsidianCard)
-                                            .border(1.dp, BorderColor, RoundedCornerShape(12.dp))
-                                            .padding(14.dp)
-                                    ) {
-                                        Row(verticalAlignment = Alignment.Top) {
-                                            Icon(Icons.Default.Lightbulb, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(18.dp).padding(top = 2.dp))
-                                            Spacer(modifier = Modifier.width(10.dp))
-                                            Text(
-                                                text = report.knowledgeBit,
-                                                style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp),
-                                                color = Color.White
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // User Notes display
-                        if (report.userNotes.isNotBlank()) {
-                            item {
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text(
-                                        text = "USER OBSERVATIONS",
-                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
-                                        color = NeonCyan
-                                    )
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(ObsidianCard.copy(alpha = 0.5f))
-                                            .border(1.dp, BorderColor, RoundedCornerShape(12.dp))
-                                            .padding(14.dp)
-                                    ) {
-                                        Text(text = report.userNotes, style = MaterialTheme.typography.bodyMedium, color = Color.White)
-                                    }
-                                }
-                            }
-                        }
-
-                        // Feedback Section
-                        item {
-                            val feedback by viewModel.getFeedbackForReport(report.id).collectAsState(initial = null)
-                            
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 16.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(ObsidianCard.copy(alpha = 0.3f))
-                                    .border(1.dp, BorderColor.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                                    .padding(16.dp)
-                            ) {
-                                if (feedback == null) {
-                                    Text(
-                                        text = "Was this scan accurate?",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = Color.White
-                                    )
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                        var showCorrection by remember { mutableStateOf(false) }
-                                        var isPositive by remember { mutableStateOf(true) }
-                                        
-                                        IconButton(
-                                            onClick = { 
-                                                isPositive = true
-                                                showCorrection = true 
-                                            },
-                                            modifier = Modifier.background(NeonCyan.copy(alpha = 0.1f), CircleShape)
-                                        ) {
-                                            Icon(Icons.Default.ThumbUp, contentDescription = "Accurate", tint = NeonCyan)
-                                        }
-                                        IconButton(
-                                            onClick = { 
-                                                isPositive = false
-                                                showCorrection = true 
-                                            },
-                                            modifier = Modifier.background(Color(0xFFFF5252).copy(alpha = 0.1f), CircleShape)
-                                        ) {
-                                            Icon(Icons.Default.ThumbDown, contentDescription = "Inaccurate", tint = Color(0xFFFF5252))
-                                        }
-                                        
-                                        if (showCorrection) {
-                                            var correctionText by remember { mutableStateOf("") }
-                                            AlertDialog(
-                                                onDismissRequest = { showCorrection = false },
-                                                containerColor = ObsidianBg,
-                                                title = { Text("Finalize Feedback", color = Color.White) },
-                                                text = {
-                                                    OutlinedTextField(
-                                                        value = correctionText,
-                                                        onValueChange = { correctionText = it },
-                                                        label = { Text("Optional correction / notes") },
-                                                        colors = OutlinedTextFieldDefaults.colors(
-                                                            unfocusedTextColor = Color.White,
-                                                            focusedTextColor = Color.White,
-                                                            focusedBorderColor = NeonCyan,
-                                                            unfocusedBorderColor = BorderColor
-                                                        )
-                                                    )
-                                                },
-                                                confirmButton = {
-                                                    TextButton(onClick = {
-                                                        viewModel.saveFeedback(report.id, isPositive, correctionText)
-                                                        showCorrection = false
-                                                    }) {
-                                                        Text("Submit", color = NeonCyan)
-                                                    }
-                                                },
-                                                dismissButton = {
-                                                    TextButton(onClick = { showCorrection = false }) {
-                                                        Text("Cancel", color = DarkMuted)
-                                                    }
-                                                }
-                                            )
-                                        }
-                                    }
-                                } else {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            imageVector = if (feedback!!.isPositive) Icons.Default.CheckCircle else Icons.Default.Cancel,
-                                            contentDescription = null,
-                                            tint = if (feedback!!.isPositive) NeonCyan else Color(0xFFFF5252),
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = if (feedback!!.isPositive) "Rated Accurate" else "Rated Inaccurate",
-                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                            color = Color.White
-                                        )
-                                    }
-                                    if (feedback!!.correction.isNotBlank()) {
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = "Correction: ${feedback!!.correction}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = DarkMuted
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                    IconButton(onClick = { isEditing = true }) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary)
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color(0xFFFF5252))
+                    }
+                } else {
+                    IconButton(onClick = { isEditing = false }) {
+                        Icon(Icons.Default.Close, contentDescription = "Cancel", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
+            }
 
-                // Action controls footer bar
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(ObsidianSurface)
-                        .border(1.dp, BorderColor, RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp))
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+            Box(modifier = Modifier.weight(1f)) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 32.dp)
                 ) {
-                    if (isEditing) {
-                        OutlinedButton(
-                            onClick = { isEditing = false },
-                            modifier = Modifier.weight(0.8f),
-                            shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, BorderColor),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                    // Header Image
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(260.dp)
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
                         ) {
-                            Text("Discard")
-                        }
-                        Button(
-                            onClick = {
-                                viewModel.updateReport(report.copy(
-                                    userTags = editedTags,
-                                    userNotes = editedNotes,
-                                    userRating = editedRating,
-                                    collectionName = selectedCollection
-                                ))
-                                isEditing = false
-                                onDismiss() 
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = ObsidianBg),
-                            modifier = Modifier.weight(1.2f),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Text("Save Changes", fontWeight = FontWeight.Bold)
-                        }
-                    } else {
-                        OutlinedButton(
-                            onClick = onDelete,
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.size(height = 44.dp, width = 50.dp),
-                            border = BorderStroke(1.dp, Color(0xFFFF5252).copy(alpha = 0.3f)),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF5252)),
-                            contentPadding = PaddingValues(0.dp)
-                        ) {
-                            Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete", modifier = Modifier.size(20.dp))
-                        }
+                            val imageUrl = report.imageUrl
+                            if (imageUrl != null) {
+                                AsyncImage(
+                                    model = imageUrl,
+                                    contentDescription = report.title,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.BrokenImage,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(64.dp)
+                                    )
+                                }
+                            }
 
-                        Button(
-                            onClick = { isEditing = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = ObsidianCard, contentColor = NeonCyan),
-                            modifier = Modifier.weight(1f),
-                            border = BorderStroke(1.dp, NeonCyan.copy(alpha = 0.3f)),
-                            shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(horizontal = 8.dp)
-                        ) {
-                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Edit", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            // Dynamic category badge
+                            Surface(
+                                modifier = Modifier
+                                    .padding(16.dp)
+                                    .align(Alignment.BottomStart),
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = report.category.uppercase(),
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Black,
+                                        color = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                )
+                            }
                         }
+                    }
 
-                        Button(
-                            onClick = onDismiss,
-                            colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = ObsidianBg),
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Text("Close", fontWeight = FontWeight.Bold)
+                    item {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            if (isEditing) {
+                                EditingLayout(
+                                    editedTags = editedTags,
+                                    onTagsChange = { editedTags = it },
+                                    editedNotes = editedNotes,
+                                    onNotesChange = { editedNotes = it },
+                                    editedRating = editedRating,
+                                    onRatingChange = { editedRating = it },
+                                    selectedCollection = selectedCollection,
+                                    onCollectionChange = { selectedCollection = it },
+                                    allCollections = allCollections
+                                )
+                                
+                                Spacer(modifier = Modifier.height(24.dp))
+                                
+                                Button(
+                                    onClick = {
+                                        viewModel.updateReport(report.copy(
+                                            userTags = editedTags,
+                                            userNotes = editedNotes,
+                                            userRating = editedRating,
+                                            collectionName = selectedCollection
+                                        ))
+                                        isEditing = false
+                                    },
+                                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                ) {
+                                    Text("SAVE MODIFICATIONS", style = MaterialTheme.typography.labelLarge.copy(fontFamily = OrbitronFont))
+                                }
+                            } else {
+                                ReadOnlyLayout(report, selectedCollection)
+                            }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun ReadOnlyLayout(report: ScanReport, selectedCollection: String?) {
+    Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        // Title & Time
+        Column {
+            Text(
+                text = report.title,
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    fontFamily = OrbitronFont
+                ),
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Schedule, 
+                    contentDescription = null, 
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant, 
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = SimpleDateFormat("MMM dd, yyyy • HH:mm", Locale.getDefault()).format(Date(report.timestamp)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        // Details Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (report.userRating > 0) {
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    repeat(5) { i ->
+                        Icon(
+                            imageVector = if (i < report.userRating) Icons.Default.Star else Icons.Outlined.StarOutline,
+                            contentDescription = null,
+                            tint = if (i < report.userRating) Color(0xFFFFD700) else MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+            if (selectedCollection != null) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Folder, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(12.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(selectedCollection, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+        }
+
+        // Attributes Grid
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            SectionHeaderTitle("CHARACTERISTICS")
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                PropertyBadge(Icons.Default.Widgets, "Material", report.primaryMaterial, Modifier.weight(1f))
+                PropertyBadge(Icons.Default.Straighten, "Size", report.dimensions, Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                PropertyBadge(Icons.Default.Palette, "Color", report.color, Modifier.weight(1f))
+                PropertyBadge(Icons.Default.FitnessCenter, "Weight", report.weight, Modifier.weight(1f))
+            }
+            PropertyBadge(Icons.Default.LocalMall, "Estimated Value", report.estimatedValue, Modifier.fillMaxWidth())
+        }
+
+        // Analysis
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            SectionHeaderTitle("AI DATA ANALYSIS")
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = report.description,
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 24.sp, fontFamily = OutfitFont),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+
+        // Insight (Dynamic)
+        if (report.dynamicDetail.isNotBlank()) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                SectionHeaderTitle("CONTEXTUAL INTELLIGENCE")
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                ) {
+                    Text(
+                        text = report.dynamicDetail,
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            lineHeight = 24.sp, 
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                            fontFamily = OutfitFont
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SectionHeaderTitle(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge.copy(
+            fontWeight = FontWeight.Bold, 
+            letterSpacing = 1.2.sp,
+            fontFamily = OrbitronFont
+        ),
+        color = MaterialTheme.colorScheme.primary
+    )
+}
+
+@Composable
+fun EditingLayout(
+    editedTags: String,
+    onTagsChange: (String) -> Unit,
+    editedNotes: String,
+    onNotesChange: (String) -> Unit,
+    editedRating: Int,
+    onRatingChange: (Int) -> Unit,
+    selectedCollection: String?,
+    onCollectionChange: (String?) -> Unit,
+    allCollections: List<String>
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        SectionHeaderTitle("MODIFY METADATA")
+        
+        // Rating Selection
+        Card(
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("SCAN ACCURACY", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    for (i in 1..5) {
+                        IconButton(onClick = { onRatingChange(i) }, modifier = Modifier.size(44.dp)) {
+                            Icon(
+                                imageVector = if (i <= editedRating) Icons.Default.Star else Icons.Outlined.StarOutline,
+                                contentDescription = null,
+                                tint = if (i <= editedRating) Color(0xFFFFD700) else MaterialTheme.colorScheme.outline
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Collection selection
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("COLLECTION", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                item {
+                    FilterChip(
+                        selected = selectedCollection == null,
+                        onClick = { onCollectionChange(null) },
+                        label = { Text("None") }
+                    )
+                }
+                items(allCollections) { collection ->
+                    FilterChip(
+                        selected = selectedCollection == collection,
+                        onClick = { onCollectionChange(collection) },
+                        label = { Text(collection) }
+                    )
+                }
+            }
+        }
+        
+        OutlinedTextField(
+            value = editedTags,
+            onValueChange = onTagsChange,
+            label = { Text("ID TAGS") },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp)
+        )
+
+        OutlinedTextField(
+            value = editedNotes,
+            onValueChange = onNotesChange,
+            label = { Text("NOTES") },
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 3,
+            shape = RoundedCornerShape(12.dp)
+        )
     }
 }
 
@@ -2266,7 +2052,7 @@ fun ComparisonDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
         modifier = Modifier.fillMaxSize(),
-        containerColor = ObsidianBg,
+        containerColor = MaterialTheme.colorScheme.background,
         text = {
             Column(modifier = Modifier.fillMaxSize()) {
                 Row(
@@ -2277,10 +2063,10 @@ fun ComparisonDialog(
                     Text(
                         text = "Side-by-Side Analysis",
                         style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                        color = NeonCyan
+                        color = MaterialTheme.colorScheme.primary
                     )
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurface)
                     }
                 }
 
@@ -2292,7 +2078,7 @@ fun ComparisonDialog(
                             modifier = Modifier
                                 .width(120.dp)
                                 .fillMaxHeight()
-                                .background(ObsidianSurface)
+                                .background(MaterialTheme.colorScheme.surface)
                                 .padding(top = 116.dp)
                         ) {
                             MetricHeader("Category")
@@ -2341,7 +2127,7 @@ fun ComparisonDialog(
                                 Text(
                                     text = report.title,
                                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = Color.White,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     textAlign = TextAlign.Center,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -2378,9 +2164,9 @@ fun MetricHeader(label: String) {
         contentAlignment = Alignment.CenterStart
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.size(4.dp).clip(CircleShape).background(NeonCyan))
+            Box(modifier = Modifier.size(4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
             Spacer(modifier = Modifier.width(8.dp))
-            Text(label, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = DarkMuted)
+            Text(label, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -2398,7 +2184,7 @@ fun MetricValue(value: String) {
         Text(
             text = value,
             style = MaterialTheme.typography.bodySmall,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
