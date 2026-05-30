@@ -376,61 +376,91 @@ fun ScannerTab(
                     .border(2.dp, NeonCyan.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
                     .background(ObsidianSurface)
             ) {
+                var isCameraActive by remember { mutableStateOf(false) }
+
                 if (hasCameraPermission) {
-                    CameraPreview(
-                        imageCapture = imageCapture,
-                        modifier = Modifier.fillMaxSize()
-                    )
+                    if (isCameraActive) {
+                        CameraPreview(
+                            imageCapture = imageCapture,
+                            modifier = Modifier.fillMaxSize()
+                        )
 
-                    // Corner indicators to simulate laser scanner viewfinder bounds
-                    ViewFinderOverlay(modifier = Modifier.fillMaxSize())
+                        // Corner indicators to simulate laser scanner viewfinder bounds
+                        ViewFinderOverlay(modifier = Modifier.fillMaxSize())
 
-                    // Trigger Capture Button
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        contentAlignment = Alignment.BottomCenter
-                    ) {
-                        FloatingActionButton(
-                            onClick = {
-                                captureLocation { lat, lon ->
-                                    val photoFile = File(
-                                        context.cacheDir,
-                                        "scan_temp_${System.currentTimeMillis()}.jpg"
-                                    )
-                                    val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+                        // Trigger Capture Button & Stop Button
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.SpaceBetween,
+                            horizontalAlignment = Alignment.End
+                        ) {
+                            IconButton(onClick = { isCameraActive = false }) {
+                                Icon(Icons.Default.Close, contentDescription = "Close Camera", tint = Color.White)
+                            }
+                            FloatingActionButton(
+                                onClick = {
+                                    captureLocation { lat, lon ->
+                                        val photoFile = File(
+                                            context.cacheDir,
+                                            "scan_temp_${System.currentTimeMillis()}.jpg"
+                                        )
+                                        val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
 
-                                    imageCapture.takePicture(
-                                        outputOptions,
-                                        cameraExecutor,
-                                        object : ImageCapture.OnImageSavedCallback {
-                                            override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                                                val savedBitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
-                                                if (savedBitmap != null) {
-                                                    viewModel.scanCapturedImage(savedBitmap, lat, lon)
-                                                } else {
-                                                    Toast.makeText(context, "Error reading captured photo", Toast.LENGTH_SHORT).show()
+                                        imageCapture.takePicture(
+                                            outputOptions,
+                                            cameraExecutor,
+                                            object : ImageCapture.OnImageSavedCallback {
+                                                override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                                                    val savedBitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
+                                                    if (savedBitmap != null) {
+                                                        viewModel.scanCapturedImage(savedBitmap, lat, lon)
+                                                    } else {
+                                                        Toast.makeText(context, "Error reading captured photo", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                }
+
+                                                override fun onError(exception: ImageCaptureException) {
+                                                    Log.e("ScannerUi", "Capture fails", exception)
                                                 }
                                             }
-
-                                            override fun onError(exception: ImageCaptureException) {
-                                                Log.e("ScannerUi", "Capture fails", exception)
-                                            }
-                                        }
-                                    )
-                                }
-                            },
-                            containerColor = NeonCyan,
-                            contentColor = ObsidianBg,
-                            shape = CircleShape,
-                            modifier = Modifier.shadow(8.dp, CircleShape)
+                                        )
+                                    }
+                                },
+                                containerColor = NeonCyan,
+                                contentColor = ObsidianBg,
+                                shape = CircleShape,
+                                modifier = Modifier.shadow(8.dp, CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Camera,
+                                    contentDescription = "Capture Shot",
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                        }
+                    } else {
+                        // Start Camera Placeholder
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Camera,
-                                contentDescription = "Capture Shot",
-                                modifier = Modifier.size(28.dp)
+                                imageVector = Icons.Default.CameraAlt,
+                                contentDescription = null,
+                                tint = DarkMuted,
+                                modifier = Modifier.size(56.dp)
                             )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = { isCameraActive = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = ObsidianBg),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Open Camera to Scan", fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 } else {
