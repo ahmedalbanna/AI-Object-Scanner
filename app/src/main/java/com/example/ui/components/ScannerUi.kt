@@ -37,6 +37,9 @@ import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -648,6 +651,10 @@ fun HistoryTab(
         reports.mapNotNull { it.collectionName }.distinct()
     }
 
+    var isSelectionMode by remember { mutableStateOf(false) }
+    val selectedReports = remember { mutableStateListOf<ScanReport>() }
+    var showComparison by remember { mutableStateOf(false) }
+
     val filteredAndSortedReports = remember(reports, searchQuery, sortByDate, sortAscending, selectedCollectionFilter) {
         val filtered = if (searchQuery.isBlank() && selectedCollectionFilter == null) {
             reports
@@ -717,9 +724,10 @@ fun HistoryTab(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.padding(bottom = 8.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = "Scanned Archive History",
@@ -727,6 +735,28 @@ fun HistoryTab(
                         color = Color.White
                     )
 
+                    TextButton(
+                        onClick = {
+                            isSelectionMode = !isSelectionMode
+                            if (!isSelectionMode) selectedReports.clear()
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = NeonCyan)
+                    ) {
+                        Icon(
+                            imageVector = if (isSelectionMode) Icons.Default.Close else Icons.Default.LibraryAddCheck,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(if (isSelectionMode) "Cancel Select" else "Select to Compare")
+                    }
+                }
+            }
+            item {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                ) {
                     // Search input
                     OutlinedTextField(
                         value = searchQuery,
@@ -906,18 +936,48 @@ fun HistoryTab(
                 }
             } else {
                 items(filteredAndSortedReports) { report ->
+                    val isSelected = selectedReports.any { it.id == report.id }
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .background(ObsidianSurface)
-                            .border(1.dp, BorderColor, RoundedCornerShape(12.dp))
-                            .clickable { onReportSelected(report) }
+                            .background(if (isSelected) NeonCyan.copy(alpha = 0.05f) else ObsidianSurface)
+                            .border(
+                                width = 1.dp,
+                                color = if (isSelected) NeonCyan else BorderColor,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            .clickable {
+                                if (isSelectionMode) {
+                                    if (isSelected) {
+                                        selectedReports.removeAll { it.id == report.id }
+                                    } else {
+                                        selectedReports.add(report)
+                                    }
+                                } else {
+                                    onReportSelected(report)
+                                }
+                            }
                     ) {
                         Row(
                             modifier = Modifier.padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            if (isSelectionMode) {
+                                Checkbox(
+                                    checked = isSelected,
+                                    onCheckedChange = { checked ->
+                                        if (checked) selectedReports.add(report)
+                                        else selectedReports.removeAll { it.id == report.id }
+                                    },
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = NeonCyan,
+                                        uncheckedColor = DarkMuted,
+                                        checkmarkColor = ObsidianBg
+                                    ),
+                                    modifier = Modifier.padding(end = 8.dp)
+                                )
+                            }
                             // Thumbnail image view
                             Box(
                                 modifier = Modifier
@@ -1036,6 +1096,29 @@ fun HistoryTab(
                 }
             }
         }
+    }
+
+    // Comparison FAB
+    if (isSelectionMode && selectedReports.size >= 2) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            ExtendedFloatingActionButton(
+                onClick = { showComparison = true },
+                icon = { Icon(Icons.Default.CompareArrows, contentDescription = null) },
+                text = { Text("Compare (${selectedReports.size})") },
+                containerColor = NeonCyan,
+                contentColor = ObsidianBg,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 32.dp)
+            )
+        }
+    }
+
+    if (showComparison) {
+        ComparisonDialog(
+            reports = selectedReports.toList(),
+            onDismiss = { showComparison = false }
+        )
     }
 }
 
@@ -1932,5 +2015,151 @@ fun PropertyBadge(
                 )
             }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ComparisonDialog(
+    reports: List<ScanReport>,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier.fillMaxSize(),
+        containerColor = ObsidianBg,
+        text = {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Side-by-Side Analysis",
+                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                        color = NeonCyan
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                    }
+                }
+
+                // Comparison Table
+                Box(modifier = Modifier.weight(1f).horizontalScroll(rememberScrollState())) {
+                    Row(modifier = Modifier.fillMaxHeight()) {
+                        // Metrics Column
+                        Column(
+                            modifier = Modifier
+                                .width(120.dp)
+                                .fillMaxHeight()
+                                .background(ObsidianSurface)
+                                .padding(top = 116.dp)
+                        ) {
+                            MetricHeader("Category")
+                            MetricHeader("Material")
+                            MetricHeader("Dimensions")
+                            MetricHeader("Color")
+                            MetricHeader("Value")
+                            MetricHeader("Weight")
+                        }
+
+                        // Data Columns
+                        reports.forEach { report ->
+                            Column(
+                                modifier = Modifier
+                                    .width(200.dp)
+                                    .fillMaxHeight()
+                                    .border(0.5.dp, BorderColor),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                // Image & Title
+                                Box(modifier = Modifier.size(100.dp).padding(8.dp).clip(RoundedCornerShape(8.dp))) {
+                                    if (report.imageUrl != null) {
+                                        val file = File(report.imageUrl)
+                                        if (file.exists()) {
+                                            val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+                                            if (bitmap != null) {
+                                                Image(
+                                                    bitmap = bitmap.asImageBitmap(),
+                                                    contentDescription = null,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+                                            }
+                                        } else {
+                                            AsyncImage(
+                                                model = report.imageUrl,
+                                                contentDescription = null,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+                                        }
+                                    }
+                                }
+                                Text(
+                                    text = report.title,
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = Color.White,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.padding(horizontal = 8.dp)
+                                )
+                                
+                                Spacer(modifier = Modifier.height(16.dp))
+                                
+                                MetricValue(report.category)
+                                MetricValue(report.primaryMaterial)
+                                MetricValue(report.dimensions)
+                                MetricValue(report.color)
+                                MetricValue(report.estimatedValue)
+                                MetricValue(report.weight)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {}
+    )
+}
+
+@Composable
+fun MetricHeader(label: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(50.dp)
+            .padding(8.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(4.dp).clip(CircleShape).background(NeonCyan))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(label, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = DarkMuted)
+        }
+    }
+}
+
+@Composable
+fun MetricValue(value: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(50.dp)
+            .padding(8.dp)
+            .border(0.2.dp, BorderColor.copy(alpha = 0.5f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
