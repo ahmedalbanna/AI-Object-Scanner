@@ -159,7 +159,27 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun scanLocalImage(uri: Uri) {
+    fun shareCollection(collectionName: String, reports: List<ScanReport>, context: android.content.Context) {
+        val filtered = reports.filter { it.collectionName == collectionName }
+        if (filtered.isEmpty()) return
+
+        val text = StringBuilder()
+        text.append("--- Collection: $collectionName ---\n\n")
+        filtered.forEach { report ->
+            text.append("- ${report.title} (${report.category})\n")
+            text.append("  ${report.description.take(100)}...\n\n")
+        }
+        text.append("Shared from AI Object Scanner")
+
+        val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(android.content.Intent.EXTRA_SUBJECT, "Collection: $collectionName")
+            putExtra(android.content.Intent.EXTRA_TEXT, text.toString())
+        }
+        context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Collection"))
+    }
+
+    fun scanLocalImage(uri: Uri, latitude: Double? = null, longitude: Double? = null) {
         viewModelScope.launch {
             _scanState.value = ScanUiState.Processing
             try {
@@ -179,14 +199,14 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                     saveBitmapToCache(bitmap)
                 }
 
-                analyzeBitmap(bitmap, savedPath)
+                analyzeBitmap(bitmap, savedPath, latitude, longitude)
             } catch (e: Exception) {
                 _scanState.value = ScanUiState.Error("Failed to process picked image: ${e.localizedMessage}")
             }
         }
     }
 
-    fun scanCapturedImage(bitmap: Bitmap) {
+    fun scanCapturedImage(bitmap: Bitmap, latitude: Double? = null, longitude: Double? = null) {
         viewModelScope.launch {
             _scanState.value = ScanUiState.Processing
             try {
@@ -194,7 +214,7 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                 val savedPath = withContext(Dispatchers.IO) {
                     saveBitmapToCache(bitmap)
                 }
-                analyzeBitmap(bitmap, savedPath)
+                analyzeBitmap(bitmap, savedPath, latitude, longitude)
             } catch (e: Exception) {
                 _scanState.value = ScanUiState.Error("Failed to save captured photo: ${e.localizedMessage}")
             }
@@ -226,7 +246,7 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private suspend fun analyzeBitmap(bitmap: Bitmap, imageUriStr: String) = withContext(Dispatchers.Default) {
+    private suspend fun analyzeBitmap(bitmap: Bitmap, imageUriStr: String, latitude: Double? = null, longitude: Double? = null) = withContext(Dispatchers.Default) {
         val apiKey = getEffectiveApiKey()
         if (apiKey.isEmpty()) {
             _scanState.value = ScanUiState.Error(
@@ -319,7 +339,9 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                 weight = weight,
                 description = finalDescription,
                 dynamicDetail = dynamicDetail,
-                knowledgeBit = knowledgeBit
+                knowledgeBit = knowledgeBit,
+                latitude = latitude,
+                longitude = longitude
             )
 
             // Persist report into Room database

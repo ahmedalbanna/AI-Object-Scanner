@@ -22,6 +22,8 @@ data class ScanReport(
     val userRating: Int = 0, // 0-5 user rating for correctness flag
     val collectionName: String? = null, // Collection grouping
     val dynamicDetail: String = "", // Context-specific (e.g. Care instructions)
-    val knowledgeBit: String = "" // Interesting fact
+    val knowledgeBit: String = "", // Interesting fact
+    val latitude: Double? = null,
+    val longitude: Double? = null
 )
 

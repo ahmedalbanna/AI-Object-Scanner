@@ -65,6 +65,7 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.data.ScanReport
 import com.example.ui.ScanUiState
 import com.example.ui.ScanViewModel
+import com.google.android.gms.location.LocationServices
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -94,6 +95,36 @@ fun ScannerUi(
     var activeTab by remember { mutableStateOf(0) } // 0 = Scanner, 1 = History, 2 = Set Key
     var selectedReportForDetails by remember { mutableStateOf<ScanReport?>(null) }
     var showApiKeyDialog by remember { mutableStateOf(false) }
+    
+    var hasLocationPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { perms ->
+        hasLocationPermission = perms[Manifest.permission.ACCESS_FINE_LOCATION] == true || perms[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+    }
+    
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+    
+    fun captureLocation(onResult: (Double?, Double?) -> Unit) {
+        if (!hasLocationPermission) {
+            onResult(null, null)
+            return
+        }
+        try {
+            fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
+                onResult(loc?.latitude, loc?.longitude)
+            }.addOnFailureListener {
+                onResult(null, null)
+            }
+        } catch (e: SecurityException) {
+            onResult(null, null)
+        }
+    }
 
     // Check camera permission
     var hasCameraPermission by remember {
@@ -118,7 +149,9 @@ fun ScannerUi(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
-            viewModel.scanLocalImage(uri)
+            captureLocation { lat, lon ->
+                viewModel.scanLocalImage(uri, lat, lon)
+            }
         }
     }
 
@@ -212,15 +245,20 @@ fun ScannerUi(
                         hasCameraPermission = hasCameraPermission,
                         onRequestPermission = {
                             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                            locationPermissionLauncher.launch(
+                                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+                            )
                         },
                         onGalleryPick = {
                             galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                         },
                         onReportGenerated = { report ->
                             selectedReportForDetails = report
-                        }
+                        },
+                        captureLocation = ::captureLocation
                     )
                     1 -> HistoryTab(
+                        viewModel = viewModel,
                         reports = reports,
                         onReportSelected = { selectedReportForDetails = it },
                         onDeleteReport = { viewModel.deleteReport(it) }
@@ -285,7 +323,8 @@ fun ScannerTab(
     hasCameraPermission: Boolean,
     onRequestPermission: () -> Unit,
     onGalleryPick: () -> Unit,
-    onReportGenerated: (ScanReport) -> Unit
+    onReportGenerated: (ScanReport) -> Unit,
+    captureLocation: ((Double?, Double?) -> Unit) -> Unit
 ) {
     val context = LocalContext.current
     val cameraExecutor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
@@ -355,30 +394,32 @@ fun ScannerTab(
                     ) {
                         FloatingActionButton(
                             onClick = {
-                                val photoFile = File(
-                                    context.cacheDir,
-                                    "scan_temp_${System.currentTimeMillis()}.jpg"
-                                )
-                                val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+                                captureLocation { lat, lon ->
+                                    val photoFile = File(
+                                        context.cacheDir,
+                                        "scan_temp_${System.currentTimeMillis()}.jpg"
+                                    )
+                                    val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
 
-                                imageCapture.takePicture(
-                                    outputOptions,
-                                    cameraExecutor,
-                                    object : ImageCapture.OnImageSavedCallback {
-                                        override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                                            val savedBitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
-                                            if (savedBitmap != null) {
-                                                viewModel.scanCapturedImage(savedBitmap)
-                                            } else {
-                                                Toast.makeText(context, "Error reading captured photo", Toast.LENGTH_SHORT).show()
+                                    imageCapture.takePicture(
+                                        outputOptions,
+                                        cameraExecutor,
+                                        object : ImageCapture.OnImageSavedCallback {
+                                            override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                                                val savedBitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
+                                                if (savedBitmap != null) {
+                                                    viewModel.scanCapturedImage(savedBitmap, lat, lon)
+                                                } else {
+                                                    Toast.makeText(context, "Error reading captured photo", Toast.LENGTH_SHORT).show()
+                                                }
+                                            }
+
+                                            override fun onError(exception: ImageCaptureException) {
+                                                Log.e("ScannerUi", "Capture fails", exception)
                                             }
                                         }
-
-                                        override fun onError(exception: ImageCaptureException) {
-                                            Log.e("ScannerUi", "Capture fails", exception)
-                                        }
-                                    }
-                                )
+                                    )
+                                }
                             },
                             containerColor = NeonCyan,
                             contentColor = ObsidianBg,
@@ -638,10 +679,12 @@ data class DemoUrl(val url: String, val title: String, val category: String)
 // ==========================================
 @Composable
 fun HistoryTab(
+    viewModel: ScanViewModel,
     reports: List<ScanReport>,
     onReportSelected: (ScanReport) -> Unit,
     onDeleteReport: (ScanReport) -> Unit
 ) {
+    val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
     var selectedCollectionFilter by remember { mutableStateOf<String?>(null) }
     var sortByDate by remember { mutableStateOf(true) } // true: Date, false: Name
@@ -785,31 +828,46 @@ fun HistoryTab(
 
                     // Collection filters
                     if (allCollections.isNotEmpty()) {
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            item {
-                                FilterChip(
-                                    selected = selectedCollectionFilter == null,
-                                    onClick = { selectedCollectionFilter = null },
-                                    label = { Text("All Scans") },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
-                                        selectedLabelColor = NeonCyan
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                item {
+                                    FilterChip(
+                                        selected = selectedCollectionFilter == null,
+                                        onClick = { selectedCollectionFilter = null },
+                                        label = { Text("All Scans") },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
+                                            selectedLabelColor = NeonCyan
+                                        )
                                     )
-                                )
+                                }
+                                items(allCollections) { coll ->
+                                    FilterChip(
+                                        selected = selectedCollectionFilter == coll,
+                                        onClick = { selectedCollectionFilter = coll },
+                                        label = { Text(coll) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
+                                            selectedLabelColor = NeonCyan
+                                        )
+                                    )
+                                }
                             }
-                            items(allCollections) { coll ->
-                                FilterChip(
-                                    selected = selectedCollectionFilter == coll,
-                                    onClick = { selectedCollectionFilter = coll },
-                                    label = { Text(coll) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
-                                        selectedLabelColor = NeonCyan
-                                    )
-                                )
+                            
+                            if (selectedCollectionFilter != null) {
+                                IconButton(
+                                    onClick = { 
+                                        viewModel.shareCollection(selectedCollectionFilter!!, reports, context)
+                                    }
+                                ) {
+                                    Icon(Icons.Default.Share, contentDescription = "Share Collection", tint = NeonCyan)
+                                }
                             }
                         }
                     }
@@ -1551,6 +1609,19 @@ fun ReportDetailsModal(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = DarkMuted
                             )
+                            
+                            if (report.latitude != null && report.longitude != null) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = String.format(Locale.US, "%.4f, %.4f", report.latitude, report.longitude),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = NeonCyan
+                                    )
+                                }
+                            }
                             
                             if (selectedCollection != null) {
                                 Spacer(modifier = Modifier.height(6.dp))
