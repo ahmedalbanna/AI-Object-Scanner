@@ -179,44 +179,44 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Collection"))
     }
 
-    fun scanLocalImage(uri: Uri, latitude: Double? = null, longitude: Double? = null) {
+    fun scanLocalImages(uris: List<Uri>, userNote: String = "", latitude: Double? = null, longitude: Double? = null) {
         viewModelScope.launch {
             _scanState.value = ScanUiState.Processing
             try {
                 val context = getApplication<Application>()
-                val bitmap = withContext(Dispatchers.IO) {
-                    val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
-                    BitmapFactory.decodeStream(inputStream)
+                val bitmaps = withContext(Dispatchers.IO) {
+                    uris.mapNotNull { uri ->
+                        val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
+                        BitmapFactory.decodeStream(inputStream)
+                    }
                 }
 
-                if (bitmap == null) {
-                    _scanState.value = ScanUiState.Error("Failed to decode picked image.")
+                if (bitmaps.isEmpty()) {
+                    _scanState.value = ScanUiState.Error("Failed to decode images.")
                     return@launch
                 }
 
-                // Save bitmap to our safe cache directory
-                val savedPath = withContext(Dispatchers.IO) {
-                    saveBitmapToCache(bitmap)
+                val savedPaths = withContext(Dispatchers.IO) {
+                    bitmaps.map { saveBitmapToCache(it) }
                 }
 
-                analyzeBitmap(bitmap, savedPath, latitude, longitude)
+                analyzeBitmaps(bitmaps, savedPaths.first(), userNote, latitude, longitude)
             } catch (e: Exception) {
-                _scanState.value = ScanUiState.Error("Failed to process picked image: ${e.localizedMessage}")
+                _scanState.value = ScanUiState.Error("Failed to process picked images: ${e.localizedMessage}")
             }
         }
     }
 
-    fun scanCapturedImage(bitmap: Bitmap, latitude: Double? = null, longitude: Double? = null) {
+    fun scanCapturedImages(bitmaps: List<Bitmap>, userNote: String = "", latitude: Double? = null, longitude: Double? = null) {
         viewModelScope.launch {
             _scanState.value = ScanUiState.Processing
             try {
-                // Save bitmap to local file cache
-                val savedPath = withContext(Dispatchers.IO) {
-                    saveBitmapToCache(bitmap)
+                val savedPaths = withContext(Dispatchers.IO) {
+                    bitmaps.map { saveBitmapToCache(it) }
                 }
-                analyzeBitmap(bitmap, savedPath, latitude, longitude)
+                analyzeBitmaps(bitmaps, savedPaths.first(), userNote, latitude, longitude)
             } catch (e: Exception) {
-                _scanState.value = ScanUiState.Error("Failed to save captured photo: ${e.localizedMessage}")
+                _scanState.value = ScanUiState.Error("Failed to save captured photos: ${e.localizedMessage}")
             }
         }
     }
@@ -239,14 +239,20 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                     saveBitmapToCache(bitmap)
                 }
 
-                analyzeBitmap(bitmap, savedPath)
+                analyzeBitmaps(listOf(bitmap), savedPath)
             } catch (e: Exception) {
                 _scanState.value = ScanUiState.Error("Failed to process demo sample: ${e.localizedMessage}")
             }
         }
     }
 
-    private suspend fun analyzeBitmap(bitmap: Bitmap, imageUriStr: String, latitude: Double? = null, longitude: Double? = null) = withContext(Dispatchers.Default) {
+    private suspend fun analyzeBitmaps(
+        bitmaps: List<Bitmap>,
+        primaryImageUriStr: String,
+        userNote: String = "",
+        latitude: Double? = null,
+        longitude: Double? = null
+    ) = withContext(Dispatchers.Default) {
         val apiKey = getEffectiveApiKey()
         if (apiKey.isEmpty()) {
             _scanState.value = ScanUiState.Error(
@@ -256,11 +262,15 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
             return@withContext
         }
 
-        val resizedBitmap = resizeBitmapForApi(bitmap, 800)
-        val imageBase64 = resizedBitmap.toBase64()
+        val resizedImagesParts = bitmaps.take(5).map { bitmap ->
+            val resized = resizeBitmapForApi(bitmap, 800)
+            Part(inlineData = InlineData(mimeType = "image/jpeg", data = resized.toBase64()))
+        }
 
-        val prompt = "You are an expert AI Object Scanner.\n" +
-                "Analyze the provided image of an object.\n" +
+        var prompt = "You are an expert AI Object Scanner.\n" +
+                "Analyze the provided image(s) of an object. " +
+                (if (bitmaps.size > 1) "You have ${bitmaps.size} different angles/views of the same object to improve your identification.\n" else "\n") +
+                (if (userNote.isNotBlank()) "User Note/Context provided: \"$userNote\"\n" else "") +
                 "Identify the main object, extract its key properties, and generate a structural analysis.\n" +
                 "You MUST output a valid raw JSON object. Do NOT wrap it in any ```json code blocks or extra text. Return ONLY the raw JSON object matching the following structure:\n" +
                 "{\n" +
@@ -279,10 +289,7 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         val request = GeminiRequest(
             contents = listOf(
                 Content(
-                    parts = listOf(
-                        Part(text = prompt),
-                        Part(inlineData = InlineData(mimeType = "image/jpeg", data = imageBase64))
-                    )
+                    parts = listOf(Part(text = prompt)) + resizedImagesParts
                 )
             ),
             generationConfig = GenerationConfig(
@@ -331,7 +338,7 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                 title = title,
                 category = category,
                 timestamp = System.currentTimeMillis(),
-                imageUrl = imageUriStr,
+                imageUrl = primaryImageUriStr,
                 primaryMaterial = primaryMaterial,
                 dimensions = dimensions,
                 color = color,

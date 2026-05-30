@@ -150,7 +150,7 @@ fun ScannerUi(
     ) { uri ->
         if (uri != null) {
             captureLocation { lat, lon ->
-                viewModel.scanLocalImage(uri, lat, lon)
+                viewModel.scanLocalImages(listOf(uri), "", lat, lon)
             }
         }
     }
@@ -330,6 +330,9 @@ fun ScannerTab(
     val cameraExecutor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
     val imageCapture = remember { ImageCapture.Builder().build() }
 
+    var gatheredBitmaps = remember { mutableStateListOf<Bitmap>() }
+    var userNote by remember { mutableStateOf("") }
+
     val demoSamples = listOf(
         DemoUrl("https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=400", "Ceramic Mug", "Kitchen"),
         DemoUrl("https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=400", "Smart Watch", "Tech"),
@@ -354,12 +357,12 @@ fun ScannerTab(
                 horizontalAlignment = Alignment.Start
             ) {
                 Text(
-                    text = "Aesthetic Scanner",
+                    text = "Aesthetic Multi-Scanner",
                     style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                     color = Color.White
                 )
                 Text(
-                    text = "Point camera, import image, or pick a demo object below to run an instant chemical-structural property analysis.",
+                    text = "Capture objects from multiple angles and add notes for a precise chemical-structural analysis.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = DarkMuted
                 )
@@ -399,34 +402,33 @@ fun ScannerTab(
                             IconButton(onClick = { isCameraActive = false }) {
                                 Icon(Icons.Default.Close, contentDescription = "Close Camera", tint = Color.White)
                             }
+                            
                             FloatingActionButton(
                                 onClick = {
-                                    captureLocation { lat, lon ->
-                                        val photoFile = File(
-                                            context.cacheDir,
-                                            "scan_temp_${System.currentTimeMillis()}.jpg"
-                                        )
-                                        val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+                                    val photoFile = File(
+                                        context.cacheDir,
+                                        "scan_temp_${System.currentTimeMillis()}.jpg"
+                                    )
+                                    val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
 
-                                        imageCapture.takePicture(
-                                            outputOptions,
-                                            cameraExecutor,
-                                            object : ImageCapture.OnImageSavedCallback {
-                                                override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                                                    val savedBitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
-                                                    if (savedBitmap != null) {
-                                                        viewModel.scanCapturedImage(savedBitmap, lat, lon)
-                                                    } else {
-                                                        Toast.makeText(context, "Error reading captured photo", Toast.LENGTH_SHORT).show()
-                                                    }
-                                                }
-
-                                                override fun onError(exception: ImageCaptureException) {
-                                                    Log.e("ScannerUi", "Capture fails", exception)
+                                    imageCapture.takePicture(
+                                        outputOptions,
+                                        cameraExecutor,
+                                        object : ImageCapture.OnImageSavedCallback {
+                                            override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                                                val savedBitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
+                                                if (savedBitmap != null) {
+                                                    gatheredBitmaps.add(savedBitmap)
+                                                } else {
+                                                    Toast.makeText(context, "Error reading photo", Toast.LENGTH_SHORT).show()
                                                 }
                                             }
-                                        )
-                                    }
+
+                                            override fun onError(exception: ImageCaptureException) {
+                                                Log.e("ScannerUi", "Capture fails", exception)
+                                            }
+                                        }
+                                    )
                                 },
                                 containerColor = NeonCyan,
                                 contentColor = ObsidianBg,
@@ -459,7 +461,7 @@ fun ScannerTab(
                                 colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = ObsidianBg),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text("Open Camera to Scan", fontWeight = FontWeight.Bold)
+                                Text("Open Camera", fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -484,13 +486,6 @@ fun ScannerTab(
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                             color = Color.White
                         )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "To enable standard live scanning, please grant camera permissions inside your app settings, or load a catalog sample.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = DarkMuted,
-                            textAlign = TextAlign.Center
-                        )
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(
                             onClick = onRequestPermission,
@@ -503,14 +498,98 @@ fun ScannerTab(
             }
         }
 
+        // Captured Images Preview & Note
+        if (gatheredBitmaps.isNotEmpty()) {
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth().background(ObsidianSurface, RoundedCornerShape(12.dp)).padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "GATHERED PERSPECTIVES (${gatheredBitmaps.size})",
+                        style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.sp, fontWeight = FontWeight.Bold),
+                        color = NeonCyan
+                    )
+
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        items(gatheredBitmaps) { bitmap ->
+                            Box(modifier = Modifier.size(80.dp).clip(RoundedCornerShape(8.dp))) {
+                                Image(
+                                    bitmap = bitmap.asImageBitmap(),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                                IconButton(
+                                    onClick = { gatheredBitmaps.remove(bitmap) },
+                                    modifier = Modifier.align(Alignment.TopEnd).size(24.dp).background(Color.Black.copy(0.6f), CircleShape)
+                                ) {
+                                    Icon(Icons.Default.Close, contentDescription = "Remove", tint = Color.White, modifier = Modifier.size(14.dp))
+                                }
+                            }
+                        }
+                    }
+
+                    OutlinedTextField(
+                        value = userNote,
+                        onValueChange = { userNote = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Add specific notes or suspected characteristics...", color = DarkMuted, fontSize = 14.sp) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = NeonCyan,
+                            unfocusedBorderColor = BorderColor,
+                            focusedContainerColor = ObsidianBg,
+                            unfocusedContainerColor = ObsidianBg
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        maxLines = 3
+                    )
+
+                    Button(
+                        onClick = {
+                            captureLocation { lat, lon ->
+                                viewModel.scanCapturedImages(gatheredBitmaps.toList(), userNote, lat, lon)
+                                gatheredBitmaps.clear()
+                                userNote = ""
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = ObsidianBg),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.Science, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("INITIATE AGGREGATE SCAN", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
         // Action Quick Utilities
         item {
+            val galleryLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.PickMultipleVisualMedia()
+            ) { uris ->
+                if (uris.isNotEmpty()) {
+                    captureLocation { lat, lon ->
+                        viewModel.scanLocalImages(uris, "", lat, lon)
+                    }
+                }
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedButton(
-                    onClick = onGalleryPick,
+                    onClick = {
+                        galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    },
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonCyan),
                     border = BorderStroke(1.dp, NeonCyan),
                     modifier = Modifier.weight(1f),
@@ -518,7 +597,7 @@ fun ScannerTab(
                 ) {
                     Icon(imageVector = Icons.Default.PhotoLibrary, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Pick Image", fontWeight = FontWeight.Bold)
+                    Text("Batch Import", fontWeight = FontWeight.Bold)
                 }
             }
         }
