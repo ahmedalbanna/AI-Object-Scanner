@@ -5,11 +5,10 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [ScanReport::class, ScanFeedback::class, CommunityComment::class], version = 6, exportSchema = false)
+@Database(entities = [ScanReport::class, ScanFeedback::class], version = 5, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun scanReportDao(): ScanReportDao
     abstract fun scanFeedbackDao(): ScanFeedbackDao
-    abstract fun communityCommentDao(): CommunityCommentDao
 
     companion object {
         @Volatile

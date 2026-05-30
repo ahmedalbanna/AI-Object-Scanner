@@ -18,7 +18,6 @@ import com.example.api.RetrofitClient
 import com.example.data.AppDatabase
 import com.example.data.ScanReport
 import com.example.data.ScanFeedback
-import com.example.data.CommunityComment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -159,47 +158,6 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
-
-    private val commentDao = AppDatabase.getDatabase(application).communityCommentDao()
-
-    val publicScans = dao.getAllPublicReports().stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
-    )
-
-    fun shareReport(report: ScanReport, context: android.content.Context) {
-        val text = """
-            --- Discovery: ${report.title} ---
-            Category: ${report.category}
-            Material: ${report.primaryMaterial}
-            
-            ${report.description}
-            
-            Find out more on AI Object Scanner!
-        """.trimIndent()
-
-        val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(android.content.Intent.EXTRA_SUBJECT, "Check out this ${report.title} scan!")
-            putExtra(android.content.Intent.EXTRA_TEXT, text)
-        }
-        context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Report"))
-    }
-
-    fun makeReportPublic(report: ScanReport) {
-        viewModelScope.launch(Dispatchers.IO) {
-            dao.updateReport(report.copy(isPublic = true))
-        }
-    }
-
-    fun addComment(reportId: Int, author: String, text: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            commentDao.insertComment(CommunityComment(reportId = reportId, authorName = author, commentText = text))
-        }
-    }
-
-    fun getComments(reportId: Int) = commentDao.getCommentsForReport(reportId)
 
     fun shareCollection(collectionName: String, reports: List<ScanReport>, context: android.content.Context) {
         val filtered = reports.filter { it.collectionName == collectionName }

@@ -37,7 +37,6 @@ import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -228,32 +227,6 @@ fun ScannerUi(
                         unselectedTextColor = DarkMuted
                     )
                 )
-                NavigationBarItem(
-                    selected = activeTab == 2,
-                    onClick = { activeTab = 2 },
-                    icon = { Icon(Icons.Default.Groups, contentDescription = "Community") },
-                    label = { Text("Community") },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = ObsidianBg,
-                        selectedTextColor = NeonCyan,
-                        indicatorColor = NeonCyan,
-                        unselectedIconColor = DarkMuted,
-                        unselectedTextColor = DarkMuted
-                    )
-                )
-                NavigationBarItem(
-                    selected = activeTab == 3,
-                    onClick = { activeTab = 3 },
-                    icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-                    label = { Text("Settings") },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = ObsidianBg,
-                        selectedTextColor = NeonCyan,
-                        indicatorColor = NeonCyan,
-                        unselectedIconColor = DarkMuted,
-                        unselectedTextColor = DarkMuted
-                    )
-                )
             }
         },
         containerColor = ObsidianBg,
@@ -290,11 +263,7 @@ fun ScannerUi(
                         onReportSelected = { selectedReportForDetails = it },
                         onDeleteReport = { viewModel.deleteReport(it) }
                     )
-                    2 -> CommunityTab(
-                        viewModel = viewModel,
-                        onReportSelected = { selectedReportForDetails = it }
-                    )
-                    3 -> SettingsTab(
+                    2 -> SettingsTab(
                         viewModel = viewModel,
                         currentKey = customKey,
                         onBack = { activeTab = 0 }
@@ -1588,25 +1557,20 @@ fun ReportDetailsModal(
 
                     // Share button
                     IconButton(
-                        onClick = { viewModel.shareReport(report, context) },
+                        onClick = {
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_SUBJECT, "AI Object Scan: ${report.title}")
+                                putExtra(Intent.EXTRA_TEXT, viewModel.formatReportForSharing(report))
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent, "Share Scan Report"))
+                        },
                         modifier = Modifier
                             .padding(12.dp)
                             .align(Alignment.TopStart)
                             .background(Color.Black.copy(alpha = 0.6f), CircleShape)
                     ) {
                         Icon(Icons.Default.Share, contentDescription = "Share", tint = NeonCyan, modifier = Modifier.size(20.dp))
-                    }
-
-                    if (!report.isPublic) {
-                        IconButton(
-                            onClick = { viewModel.makeReportPublic(report) },
-                            modifier = Modifier
-                                .padding(top = 12.dp, start = 56.dp)
-                                .align(Alignment.TopStart)
-                                .background(Color.Black.copy(alpha = 0.6f), CircleShape)
-                        ) {
-                            Icon(Icons.Default.Public, contentDescription = "Publish to Community", tint = NeonCyan, modifier = Modifier.size(20.dp))
-                        }
                     }
 
                     // Gradient under title
@@ -1925,82 +1889,6 @@ fun ReportDetailsModal(
                             }
                         }
 
-                        // Community Comments Section
-                        item {
-                            val comments by viewModel.getComments(report.id).collectAsState(initial = emptyList())
-                            var newCommentText by remember { mutableStateOf("") }
-                            
-                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text(
-                                    text = "COMMUNITY DISCUSSION (${comments.size})",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
-                                    color = NeonCyan
-                                )
-                                
-                                if (comments.isEmpty()) {
-                                    Text("No comments yet. Suggest a correction or ask a question!", color = DarkMuted, style = MaterialTheme.typography.bodySmall)
-                                } else {
-                                    comments.forEach { comment ->
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                        ) {
-                                            Box(
-                                                modifier = Modifier.size(28.dp).clip(CircleShape).background(NeonCyan.copy(alpha = 0.1f)),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Text(comment.authorName.take(1).uppercase(), color = NeonCyan, style = MaterialTheme.typography.labelSmall)
-                                            }
-                                            Column(modifier = Modifier.weight(1f)) {
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Text(comment.authorName, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color.White)
-                                                    Spacer(modifier = Modifier.width(8.dp))
-                                                    Text(
-                                                        SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(comment.timestamp)),
-                                                        style = MaterialTheme.typography.labelSmall,
-                                                        color = DarkMuted
-                                                    )
-                                                }
-                                                Text(comment.commentText, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.9f))
-                                            }
-                                        }
-                                    }
-                                }
-                                
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    OutlinedTextField(
-                                        value = newCommentText,
-                                        onValueChange = { newCommentText = it },
-                                        placeholder = { Text("Add a comment / correction...", style = MaterialTheme.typography.bodySmall) },
-                                        modifier = Modifier.weight(1f),
-                                        shape = RoundedCornerShape(24.dp),
-                                        textStyle = MaterialTheme.typography.bodySmall,
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedBorderColor = NeonCyan,
-                                            unfocusedBorderColor = BorderColor,
-                                            focusedTextColor = Color.White,
-                                            unfocusedTextColor = Color.White
-                                        )
-                                    )
-                                    IconButton(
-                                        onClick = {
-                                            if (newCommentText.isNotBlank()) {
-                                                viewModel.addComment(report.id, "You", newCommentText)
-                                                newCommentText = ""
-                                            }
-                                        },
-                                        modifier = Modifier.background(NeonCyan, CircleShape).size(36.dp)
-                                    ) {
-                                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = ObsidianBg, modifier = Modifier.size(18.dp))
-                                    }
-                                }
-                            }
-                        }
-
                         // User Notes display
                         if (report.userNotes.isNotBlank()) {
                             item {
@@ -2027,9 +1915,7 @@ fun ReportDetailsModal(
                         // Feedback Section
                         item {
                             val feedback by viewModel.getFeedbackForReport(report.id).collectAsState(initial = null)
-                            var showCorrectionDialog by remember { mutableStateOf(false) }
-                            var isPositiveFeedback by remember { mutableStateOf(true) }
-
+                            
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -2041,169 +1927,90 @@ fun ReportDetailsModal(
                             ) {
                                 if (feedback == null) {
                                     Text(
-                                        text = "Accuracy Assessment",
-                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                        text = "Was this scan accurate?",
+                                        style = MaterialTheme.typography.titleSmall,
                                         color = Color.White
                                     )
-                                    Text(
-                                        text = "Was the AI's identification correct?",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = DarkMuted
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                    ) {
-                                        Button(
-                                            onClick = {
-                                                isPositiveFeedback = true
-                                                showCorrectionDialog = true
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                        var showCorrection by remember { mutableStateOf(false) }
+                                        var isPositive by remember { mutableStateOf(true) }
+                                        
+                                        IconButton(
+                                            onClick = { 
+                                                isPositive = true
+                                                showCorrection = true 
                                             },
-                                            modifier = Modifier.weight(1f),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = NeonCyan.copy(alpha = 0.1f),
-                                                contentColor = NeonCyan
-                                            ),
-                                            shape = RoundedCornerShape(8.dp),
-                                            border = BorderStroke(1.dp, NeonCyan.copy(alpha = 0.3f))
+                                            modifier = Modifier.background(NeonCyan.copy(alpha = 0.1f), CircleShape)
                                         ) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Text("Correct", style = MaterialTheme.typography.labelLarge)
-                                            }
+                                            Icon(Icons.Default.ThumbUp, contentDescription = "Accurate", tint = NeonCyan)
                                         }
-
-                                        Button(
-                                            onClick = {
-                                                isPositiveFeedback = false
-                                                showCorrectionDialog = true
+                                        IconButton(
+                                            onClick = { 
+                                                isPositive = false
+                                                showCorrection = true 
                                             },
-                                            modifier = Modifier.weight(1f),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = Color(0xFFFF5252).copy(alpha = 0.1f),
-                                                contentColor = Color(0xFFFF5252)
-                                            ),
-                                            shape = RoundedCornerShape(8.dp),
-                                            border = BorderStroke(1.dp, Color(0xFFFF5252).copy(alpha = 0.3f))
+                                            modifier = Modifier.background(Color(0xFFFF5252).copy(alpha = 0.1f), CircleShape)
                                         ) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Text("Incorrect", style = MaterialTheme.typography.labelLarge)
-                                            }
+                                            Icon(Icons.Default.ThumbDown, contentDescription = "Inaccurate", tint = Color(0xFFFF5252))
                                         }
-                                    }
-
-                                    if (showCorrectionDialog) {
-                                        var suggestedName by remember { mutableStateOf("") }
-                                        var extraDetails by remember { mutableStateOf("") }
-
-                                        AlertDialog(
-                                            onDismissRequest = { showCorrectionDialog = false },
-                                            containerColor = ObsidianCard,
-                                            title = {
-                                                Text(
-                                                    text = if (isPositiveFeedback) "Positive Feedback" else "Suggest Correction",
-                                                    color = Color.White
-                                                )
-                                            },
-                                            text = {
-                                                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                                    if (!isPositiveFeedback) {
-                                                        Text(
-                                                            "Help us improve! What is the correct name of this object?",
-                                                            style = MaterialTheme.typography.bodySmall,
-                                                            color = DarkMuted
-                                                        )
-                                                        OutlinedTextField(
-                                                            value = suggestedName,
-                                                            onValueChange = { suggestedName = it },
-                                                            label = { Text("Correct Object Name") },
-                                                            modifier = Modifier.fillMaxWidth(),
-                                                            colors = OutlinedTextFieldDefaults.colors(
-                                                                focusedTextColor = Color.White,
-                                                                unfocusedTextColor = Color.White,
-                                                                focusedBorderColor = NeonCyan,
-                                                                unfocusedBorderColor = BorderColor
-                                                            )
-                                                        )
-                                                    }
+                                        
+                                        if (showCorrection) {
+                                            var correctionText by remember { mutableStateOf("") }
+                                            AlertDialog(
+                                                onDismissRequest = { showCorrection = false },
+                                                containerColor = ObsidianBg,
+                                                title = { Text("Finalize Feedback", color = Color.White) },
+                                                text = {
                                                     OutlinedTextField(
-                                                        value = extraDetails,
-                                                        onValueChange = { extraDetails = it },
-                                                        label = { Text(if (isPositiveFeedback) "Additional Praise/Notes" else "Extra Details / Why it was wrong?") },
-                                                        modifier = Modifier.fillMaxWidth(),
-                                                        minLines = 2,
+                                                        value = correctionText,
+                                                        onValueChange = { correctionText = it },
+                                                        label = { Text("Optional correction / notes") },
                                                         colors = OutlinedTextFieldDefaults.colors(
-                                                            focusedTextColor = Color.White,
                                                             unfocusedTextColor = Color.White,
+                                                            focusedTextColor = Color.White,
                                                             focusedBorderColor = NeonCyan,
                                                             unfocusedBorderColor = BorderColor
                                                         )
                                                     )
+                                                },
+                                                confirmButton = {
+                                                    TextButton(onClick = {
+                                                        viewModel.saveFeedback(report.id, isPositive, correctionText)
+                                                        showCorrection = false
+                                                    }) {
+                                                        Text("Submit", color = NeonCyan)
+                                                    }
+                                                },
+                                                dismissButton = {
+                                                    TextButton(onClick = { showCorrection = false }) {
+                                                        Text("Cancel", color = DarkMuted)
+                                                    }
                                                 }
-                                            },
-                                            confirmButton = {
-                                                TextButton(
-                                                    onClick = {
-                                                        val fullCorrection = if (!isPositiveFeedback && suggestedName.isNotBlank()) {
-                                                            "Suggested Name: $suggestedName\nDetails: $extraDetails"
-                                                        } else {
-                                                            extraDetails
-                                                        }
-                                                        viewModel.saveFeedback(report.id, isPositiveFeedback, fullCorrection)
-                                                        showCorrectionDialog = false
-                                                    },
-                                                    colors = ButtonDefaults.textButtonColors(contentColor = NeonCyan)
-                                                ) {
-                                                    Text("Submit Feedback")
-                                                }
-                                            },
-                                            dismissButton = {
-                                                TextButton(onClick = { showCorrectionDialog = false }) {
-                                                    Text("Cancel", color = DarkMuted)
-                                                }
-                                            }
-                                        )
+                                            )
+                                        }
                                     }
                                 } else {
-                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
-                                                imageVector = if (feedback!!.isPositive) Icons.Default.CheckCircle else Icons.Default.Cancel,
-                                                contentDescription = null,
-                                                tint = if (feedback!!.isPositive) NeonCyan else Color(0xFFFF5252),
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(10.dp))
-                                            Text(
-                                                text = if (feedback!!.isPositive) "Rated Accurate" else "Rated Inaccurate",
-                                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                                color = Color.White
-                                            )
-                                        }
-                                        if (feedback!!.correction.isNotBlank()) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .background(Color.Black.copy(alpha = 0.2f))
-                                                    .padding(12.dp)
-                                            ) {
-                                                Text(
-                                                    text = feedback!!.correction,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = DarkMuted
-                                                )
-                                            }
-                                        }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = if (feedback!!.isPositive) Icons.Default.CheckCircle else Icons.Default.Cancel,
+                                            contentDescription = null,
+                                            tint = if (feedback!!.isPositive) NeonCyan else Color(0xFFFF5252),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = "Logged for model retraining optimization.",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = NeonCyan.copy(alpha = 0.7f),
-                                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                            text = if (feedback!!.isPositive) "Rated Accurate" else "Rated Inaccurate",
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = Color.White
+                                        )
+                                    }
+                                    if (feedback!!.correction.isNotBlank()) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = "Correction: ${feedback!!.correction}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = DarkMuted
                                         )
                                     }
                                 }
@@ -2335,203 +2142,6 @@ fun PropertyBadge(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-            }
-        }
-    }
-}
-
-@Composable
-fun CommunityTab(
-    viewModel: ScanViewModel,
-    onReportSelected: (ScanReport) -> Unit
-) {
-    val publicScans by viewModel.publicScans.collectAsState()
-    
-    val context = LocalContext.current
-    var activeCategory by remember { mutableStateOf("All") }
-    
-    val categories = remember(publicScans) {
-        listOf("All", "Nearby", "Trending") + publicScans.map { it.category }.distinct()
-    }
-
-    Scaffold(
-        containerColor = ObsidianBg,
-        topBar = {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "COMMUNITY FEED",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = 2.sp),
-                    color = NeonCyan
-                )
-                Text(
-                    text = "Discover what others are scanning",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = DarkMuted
-                )
-            }
-        }
-    ) { padding ->
-        Column(modifier = Modifier.padding(padding)) {
-            ScrollableTabRow(
-                selectedTabIndex = categories.indexOf(activeCategory),
-                containerColor = Color.Transparent,
-                edgePadding = 16.dp,
-                divider = {},
-                indicator = { tabPositions ->
-                    TabRowDefaults.SecondaryIndicator(
-                        Modifier.tabIndicatorOffset(tabPositions[categories.indexOf(activeCategory)]),
-                        color = NeonCyan
-                    )
-                }
-            ) {
-                categories.forEach { cat ->
-                    Tab(
-                        selected = activeCategory == cat,
-                        onClick = { activeCategory = cat },
-                        text = { Text(cat, style = MaterialTheme.typography.labelLarge) },
-                        selectedContentColor = NeonCyan,
-                        unselectedContentColor = DarkMuted
-                    )
-                }
-            }
-
-            val filteredScans = remember(publicScans, activeCategory) {
-                when (activeCategory) {
-                    "All" -> publicScans
-                    "Nearby" -> publicScans.filter { it.latitude != null && it.longitude != null }
-                    "Trending" -> publicScans.sortedByDescending { it.userRating }.take(10)
-                    else -> publicScans.filter { it.category == activeCategory }
-                }
-            }
-
-            if (filteredScans.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No public scans yet. Be the first!", color = DarkMuted)
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    items(filteredScans) { report ->
-                        CommunityPostItem(
-                            report = report,
-                            viewModel = viewModel,
-                            onClick = { onReportSelected(report) }
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun CommunityPostItem(
-    report: ScanReport,
-    viewModel: ScanViewModel,
-    onClick: () -> Unit
-) {
-    val comments by viewModel.getComments(report.id).collectAsState(initial = emptyList())
-    val context = LocalContext.current
-    
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)),
-        colors = CardDefaults.cardColors(containerColor = ObsidianCard),
-        border = BorderStroke(1.dp, BorderColor)
-    ) {
-        Column {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier.size(32.dp).clip(CircleShape).background(NeonCyan.copy(alpha = 0.1f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(report.authorName.take(1).uppercase(), color = NeonCyan, style = MaterialTheme.typography.labelMedium)
-                }
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Text(report.authorName, style = MaterialTheme.typography.labelLarge, color = Color.White)
-                    Text(
-                        SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()).format(Date(report.timestamp)),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = DarkMuted
-                    )
-                }
-                Spacer(modifier = Modifier.weight(1f))
-                IconButton(onClick = { viewModel.shareReport(report, context) }) {
-                    Icon(Icons.Default.Share, contentDescription = "Share", tint = NeonCyan, modifier = Modifier.size(20.dp))
-                }
-            }
-
-            // Image
-            if (report.imageUrl != null) {
-                Box(modifier = Modifier.fillMaxWidth().height(180.dp)) {
-                    val file = File(report.imageUrl)
-                    if (file.exists()) {
-                        val bitmap = BitmapFactory.decodeFile(file.absolutePath)
-                        if (bitmap != null) {
-                            Image(
-                                bitmap = bitmap.asImageBitmap(),
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
-                    } else {
-                        AsyncImage(
-                            model = report.imageUrl,
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                }
-            }
-
-            // Content
-            Column(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    text = report.title,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = NeonCyan
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = report.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.8f),
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
-                )
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                // Interaction bar
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, tint = DarkMuted, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("${comments.size}", style = MaterialTheme.typography.labelSmall, color = DarkMuted)
-                    }
-                    
-                    if (report.latitude != null) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.LocationOn, contentDescription = null, tint = DarkMuted, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Nearby", style = MaterialTheme.typography.labelSmall, color = DarkMuted)
-                        }
-                    }
-                }
             }
         }
     }
