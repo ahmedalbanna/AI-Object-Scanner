@@ -8,33 +8,41 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme =
-  darkColorScheme(primary = Purple80, secondary = PurpleGrey80, tertiary = Pink80)
-
-private val LightColorScheme =
-  lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40,
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
+  darkColorScheme(
+    primary = NeonCyan,
+    onPrimary = ObsidianBg,
+    primaryContainer = NeonCyan.copy(alpha = 0.1f),
+    onPrimaryContainer = NeonCyan,
+    secondary = ActiveTeal,
+    onSecondary = ObsidianBg,
+    tertiary = ActiveTeal.copy(alpha = 0.8f),
     onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+    background = ObsidianBg,
+    onBackground = Color.White,
+    surface = ObsidianSurface,
+    onSurface = Color.White,
+    surfaceVariant = ObsidianCard,
+    onSurfaceVariant = DarkMuted,
+    outline = BorderColor,
+    inverseOnSurface = ObsidianBg,
+    inverseSurface = Color.White,
+    inversePrimary = NeonCyan,
+    surfaceTint = NeonCyan,
+    outlineVariant = BorderColor,
+    scrim = Color.Black
   )
+
+private val LightColorScheme = DarkColorScheme // Force dark theme vibe for cyber-obsidian
 
 @Composable
 fun MyApplicationTheme(
-  darkTheme: Boolean = isSystemInDarkTheme(),
+  darkTheme: Boolean = true, // Default to true for the obsidian theme
   // Dynamic color is available on Android 12+
-  dynamicColor: Boolean = true,
+  dynamicColor: Boolean = false, // Disable dynamic color to maintain the brand aesthetic
   content: @Composable () -> Unit,
 ) {
   val colorScheme =

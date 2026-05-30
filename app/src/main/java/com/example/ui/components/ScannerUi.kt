@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -65,6 +66,7 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.data.ScanReport
 import com.example.ui.ScanUiState
 import com.example.ui.ScanViewModel
+import com.example.ui.theme.*
 import com.google.android.gms.location.LocationServices
 import java.io.File
 import java.text.SimpleDateFormat
@@ -72,15 +74,7 @@ import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-// Gorgeous Cyan Slate / Cyber Obsidian Palette
-val ObsidianBg = Color(0xFF0F1217)
-val ObsidianSurface = Color(0xFF161B22)
-val ObsidianCard = Color(0xFF21262D)
-val NeonCyan = Color(0xFF00E5FF)
-val ActiveTeal = Color(0xFF009688)
-val DarkMuted = Color(0xFF8B949E)
-val BorderColor = Color(0xFF30363D)
-
+// Gorgeous Cyan Slate / Cyber Obsidian Palette moved to Theme.kt or Color.kt
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScannerUi(
@@ -161,45 +155,55 @@ fun ScannerUi(
                 title = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.FilterCenterFocus,
-                            contentDescription = null,
-                            tint = NeonCyan,
-                            modifier = Modifier.size(28.dp)
-                        )
+                        IconButton(
+                            onClick = { /* Could open a side menu */ },
+                            modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FilterCenterFocus,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                         Text(
-                            text = "AI OBJECT SCANNER",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                letterSpacing = 2.sp,
-                                fontFamily = FontFamily.Monospace
+                            text = "OBJECT AI",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
                             ),
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onBackground
                         )
                     }
                 },
                 actions = {
-                    IconButton(onClick = { activeTab = 2 }) {
+                    IconButton(
+                        onClick = { activeTab = 2 },
+                        modifier = Modifier.padding(end = 8.dp)
+                    ) {
                         Icon(
                             imageVector = if (customKey.isNotEmpty()) Icons.Default.VpnKey else Icons.Outlined.Key,
                             contentDescription = "API Keys",
-                            tint = if (customKey.isNotEmpty()) NeonCyan else Color.White
+                            tint = if (customKey.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = ObsidianBg,
-                    titleContentColor = Color.White
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
         },
         bottomBar = {
             NavigationBar(
-                containerColor = ObsidianSurface,
+                containerColor = MaterialTheme.colorScheme.surface,
                 tonalElevation = 8.dp,
-                modifier = Modifier.border(1.dp, BorderColor, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                modifier = Modifier.border(
+                    BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+                ).clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
             ) {
                 NavigationBarItem(
                     selected = activeTab == 0,
@@ -207,11 +211,11 @@ fun ScannerUi(
                     icon = { Icon(Icons.Default.DocumentScanner, contentDescription = "Scan") },
                     label = { Text("Scanner") },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = ObsidianBg,
-                        selectedTextColor = NeonCyan,
-                        indicatorColor = NeonCyan,
-                        unselectedIconColor = DarkMuted,
-                        unselectedTextColor = DarkMuted
+                        selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primary,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 )
                 NavigationBarItem(
@@ -220,16 +224,16 @@ fun ScannerUi(
                     icon = { Icon(Icons.Default.History, contentDescription = "History") },
                     label = { Text("History") },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = ObsidianBg,
-                        selectedTextColor = NeonCyan,
-                        indicatorColor = NeonCyan,
-                        unselectedIconColor = DarkMuted,
-                        unselectedTextColor = DarkMuted
+                        selectedIconColor = MaterialTheme.colorScheme.onPrimary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primary,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 )
             }
         },
-        containerColor = ObsidianBg,
+        containerColor = MaterialTheme.colorScheme.background,
         modifier = modifier
     ) { innerPadding ->
         Box(
@@ -357,14 +361,14 @@ fun ScannerTab(
                 horizontalAlignment = Alignment.Start
             ) {
                 Text(
-                    text = "Aesthetic Multi-Scanner",
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                    color = Color.White
+                    text = "Vision Analysis",
+                    style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onBackground
                 )
                 Text(
-                    text = "Capture objects from multiple angles and add notes for a precise chemical-structural analysis.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = DarkMuted
+                    text = "Capture objects from multiple angles for a precise structural and contextual analysis.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -374,10 +378,13 @@ fun ScannerTab(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(300.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .border(2.dp, NeonCyan.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
-                    .background(ObsidianSurface)
+                    .height(320.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .border(
+                        BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                        RoundedCornerShape(24.dp)
+                    )
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 var isCameraActive by remember { mutableStateOf(false) }
 
@@ -425,15 +432,15 @@ fun ScannerTab(
                                         }
                                     )
                                 },
-                                containerColor = NeonCyan,
-                                contentColor = ObsidianBg,
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary,
                                 shape = CircleShape,
-                                modifier = Modifier.shadow(8.dp, CircleShape)
+                                modifier = Modifier.shadow(12.dp, CircleShape).testTag("capture_button")
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Camera,
                                     contentDescription = "Capture Shot",
-                                    modifier = Modifier.size(28.dp)
+                                    modifier = Modifier.size(32.dp)
                                 )
                             }
                         }
@@ -447,16 +454,20 @@ fun ScannerTab(
                             Icon(
                                 imageVector = Icons.Default.CameraAlt,
                                 contentDescription = null,
-                                tint = DarkMuted,
-                                modifier = Modifier.size(56.dp)
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(64.dp)
                             )
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(20.dp))
                             Button(
                                 onClick = { isCameraActive = true },
-                                colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = ObsidianBg),
-                                shape = RoundedCornerShape(12.dp)
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                ),
+                                shape = RoundedCornerShape(16.dp),
+                                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
                             ) {
-                                Text("Open Camera", fontWeight = FontWeight.Bold)
+                                Text("INITIALIZE SENSORS", style = MaterialTheme.typography.labelLarge)
                             }
                         }
                     }
@@ -532,14 +543,14 @@ fun ScannerTab(
                         value = userNote,
                         onValueChange = { userNote = it },
                         modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("Add specific notes or suspected characteristics...", color = DarkMuted, fontSize = 14.sp) },
+                        placeholder = { Text("Add specific notes or suspected characteristics...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
-                            focusedBorderColor = NeonCyan,
-                            unfocusedBorderColor = BorderColor,
-                            focusedContainerColor = ObsidianBg,
-                            unfocusedContainerColor = ObsidianBg
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            focusedContainerColor = MaterialTheme.colorScheme.background,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.background
                         ),
                         shape = RoundedCornerShape(8.dp),
                         maxLines = 3
@@ -554,7 +565,10 @@ fun ScannerTab(
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = ObsidianBg),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Icon(Icons.Default.Science, contentDescription = null)
@@ -635,8 +649,8 @@ fun ScannerTab(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .background(ObsidianSurface)
-                            .border(1.dp, BorderColor, RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
                             .clickable {
                                 viewModel.scanRemoteDemoImage(sample.url, sample.title)
                             }
@@ -647,7 +661,7 @@ fun ScannerTab(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(100.dp)
-                                    .background(ObsidianCard)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
                             ) {
                                 AsyncImage(
                                     model = sample.url,
@@ -712,6 +726,7 @@ fun ScannerTab(
 // ViewFinder overlay corners draw
 @Composable
 fun ViewFinderOverlay(modifier: Modifier = Modifier) {
+    val primaryColor = MaterialTheme.colorScheme.primary
     Canvas(modifier = modifier) {
         val sizeVal = 32f
         val strokeW = 6f
@@ -719,13 +734,13 @@ fun ViewFinderOverlay(modifier: Modifier = Modifier) {
 
         // Top Left corner
         drawLine(
-            color = NeonCyan,
+            color = primaryColor,
             start = Offset(padding, padding),
             end = Offset(padding + sizeVal, padding),
             strokeWidth = strokeW
         )
         drawLine(
-            color = NeonCyan,
+            color = primaryColor,
             start = Offset(padding, padding),
             end = Offset(padding, padding + sizeVal),
             strokeWidth = strokeW
@@ -733,13 +748,13 @@ fun ViewFinderOverlay(modifier: Modifier = Modifier) {
 
         // Top Right corner
         drawLine(
-            color = NeonCyan,
+            color = primaryColor,
             start = Offset(size.width - padding, padding),
             end = Offset(size.width - padding - sizeVal, padding),
             strokeWidth = strokeW
         )
         drawLine(
-            color = NeonCyan,
+            color = primaryColor,
             start = Offset(size.width - padding, padding),
             end = Offset(size.width - padding, padding + sizeVal),
             strokeWidth = strokeW
@@ -747,13 +762,13 @@ fun ViewFinderOverlay(modifier: Modifier = Modifier) {
 
         // Bottom Left corner
         drawLine(
-            color = NeonCyan,
+            color = primaryColor,
             start = Offset(padding, size.height - padding),
             end = Offset(padding + sizeVal, size.height - padding),
             strokeWidth = strokeW
         )
         drawLine(
-            color = NeonCyan,
+            color = primaryColor,
             start = Offset(padding, size.height - padding),
             end = Offset(padding, size.height - padding - sizeVal),
             strokeWidth = strokeW
@@ -761,13 +776,13 @@ fun ViewFinderOverlay(modifier: Modifier = Modifier) {
 
         // Bottom Right corner
         drawLine(
-            color = NeonCyan,
+            color = primaryColor,
             start = Offset(size.width - padding, size.height - padding),
             end = Offset(size.width - padding - sizeVal, size.height - padding),
             strokeWidth = strokeW
         )
         drawLine(
-            color = NeonCyan,
+            color = primaryColor,
             start = Offset(size.width - padding, size.height - padding),
             end = Offset(size.width - padding, size.height - padding - sizeVal),
             strokeWidth = strokeW
@@ -845,21 +860,21 @@ fun HistoryTab(
             Icon(
                 imageVector = Icons.Default.Pageview,
                 contentDescription = null,
-                tint = DarkMuted,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(64.dp)
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "Scanned Archives Empty",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onBackground,
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "Reports you generate via the Object Scanner will be archived securely right here inside local system storage.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = DarkMuted,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
         }
@@ -887,7 +902,7 @@ fun HistoryTab(
                             isSelectionMode = !isSelectionMode
                             if (!isSelectionMode) selectedReports.clear()
                         },
-                        colors = ButtonDefaults.textButtonColors(contentColor = NeonCyan)
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                     ) {
                         Icon(
                             imageVector = if (isSelectionMode) Icons.Default.Close else Icons.Default.LibraryAddCheck,
@@ -908,12 +923,12 @@ fun HistoryTab(
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
-                        placeholder = { Text("Search by name or category...", color = DarkMuted) },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = NeonCyan) },
+                        placeholder = { Text("Search by name or category...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary) },
                         trailingIcon = {
                             if (searchQuery.isNotEmpty()) {
                                 IconButton(onClick = { searchQuery = "" }) {
-                                    Icon(Icons.Default.Clear, contentDescription = "Clear search", tint = DarkMuted)
+                                    Icon(Icons.Default.Clear, contentDescription = "Clear search", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                         },
@@ -921,10 +936,10 @@ fun HistoryTab(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
-                            focusedBorderColor = NeonCyan,
-                            unfocusedBorderColor = BorderColor,
-                            focusedContainerColor = ObsidianSurface,
-                            unfocusedContainerColor = ObsidianSurface
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface
                         ),
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
@@ -970,7 +985,7 @@ fun HistoryTab(
                                         viewModel.shareCollection(selectedCollectionFilter!!, reports, context)
                                     }
                                 ) {
-                                    Icon(Icons.Default.Share, contentDescription = "Share Collection", tint = NeonCyan)
+                                    Icon(Icons.Default.Share, contentDescription = "Share Collection", tint = MaterialTheme.colorScheme.primary)
                                 }
                             }
                         }
@@ -1016,13 +1031,13 @@ fun HistoryTab(
                                 )
                             },
                             colors = AssistChipDefaults.assistChipColors(
-                                containerColor = if (sortByDate) NeonCyan.copy(alpha = 0.15f) else ObsidianSurface,
-                                labelColor = if (sortByDate) NeonCyan else Color.White,
-                                leadingIconContentColor = if (sortByDate) NeonCyan else DarkMuted
+                                containerColor = if (sortByDate) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface,
+                                labelColor = if (sortByDate) MaterialTheme.colorScheme.primary else Color.White,
+                                leadingIconContentColor = if (sortByDate) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                             ),
                             border = BorderStroke(
                                 width = 1.dp,
-                                color = if (sortByDate) NeonCyan else BorderColor
+                                color = if (sortByDate) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
                             )
                         )
 
@@ -1054,13 +1069,13 @@ fun HistoryTab(
                                 )
                             },
                             colors = AssistChipDefaults.assistChipColors(
-                                containerColor = if (!sortByDate) NeonCyan.copy(alpha = 0.15f) else ObsidianSurface,
-                                labelColor = if (!sortByDate) NeonCyan else Color.White,
-                                leadingIconContentColor = if (!sortByDate) NeonCyan else DarkMuted
+                                containerColor = if (!sortByDate) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface,
+                                labelColor = if (!sortByDate) MaterialTheme.colorScheme.primary else Color.White,
+                                leadingIconContentColor = if (!sortByDate) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                             ),
                             border = BorderStroke(
                                 width = 1.dp,
-                                color = if (!sortByDate) NeonCyan else BorderColor
+                                color = if (!sortByDate) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
                             )
                         )
                     }
@@ -1172,7 +1187,7 @@ fun HistoryTab(
                                     Icon(
                                         imageVector = Icons.Default.BrokenImage,
                                         contentDescription = null,
-                                        tint = DarkMuted,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.align(Alignment.Center)
                                     )
                                 }
@@ -1191,13 +1206,13 @@ fun HistoryTab(
                                     Box(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(4.dp))
-                                            .background(NeonCyan.copy(alpha = 0.15f))
+                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
                                             .padding(horizontal = 6.dp, vertical = 2.dp)
                                     ) {
                                         Text(
                                             text = report.category.uppercase(),
                                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp, fontWeight = FontWeight.Bold),
-                                            color = NeonCyan
+                                            color = MaterialTheme.colorScheme.primary
                                         )
                                     }
                                     Text(
@@ -1267,8 +1282,8 @@ fun HistoryTab(
                 onClick = { showComparison = true },
                 icon = { Icon(Icons.Default.CompareArrows, contentDescription = null) },
                 text = { Text("Compare (${selectedReports.size})") },
-                containerColor = NeonCyan,
-                contentColor = ObsidianBg,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 32.dp)
@@ -1307,8 +1322,8 @@ fun SettingsTab(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.clickable { onBack() }
         ) {
-            Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back", tint = NeonCyan)
-            Text("Back to Scanner", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = NeonCyan)
+            Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.primary)
+            Text("Back to Scanner", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.primary)
         }
 
         Text(
@@ -1318,8 +1333,8 @@ fun SettingsTab(
         )
 
         Card(
-            colors = CardDefaults.cardColors(containerColor = ObsidianSurface),
-            border = BorderStroke(1.dp, BorderColor),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -1348,10 +1363,10 @@ fun SettingsTab(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = Color.White,
-                        focusedBorderColor = NeonCyan,
-                        unfocusedBorderColor = BorderColor,
-                        focusedLabelColor = NeonCyan,
-                        unfocusedLabelColor = DarkMuted
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                        focusedLabelColor = MaterialTheme.colorScheme.primary,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -1361,7 +1376,10 @@ fun SettingsTab(
                         viewModel.setCustomApiKey(textState)
                         onBack()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = ObsidianBg),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 ) {
@@ -2196,40 +2214,40 @@ fun PropertyBadge(
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(ObsidianCard)
-            .border(1.dp, BorderColor, RoundedCornerShape(10.dp))
-            .padding(10.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
+            .padding(12.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(32.dp)
                     .clip(CircleShape)
-                    .background(NeonCyan.copy(alpha = 0.1f)),
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = NeonCyan,
-                    modifier = Modifier.size(16.dp)
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
                 )
             }
 
             Column {
                 Text(
                     text = title.uppercase(),
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 7.sp, letterSpacing = 0.5.sp, fontWeight = FontWeight.Bold),
-                    color = DarkMuted
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = value,
                     style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

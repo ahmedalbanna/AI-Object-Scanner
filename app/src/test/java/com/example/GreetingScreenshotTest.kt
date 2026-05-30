@@ -9,9 +9,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import com.example.ui.components.ObsidianBg
-import com.example.ui.components.PropertyBadge
 import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.theme.ObsidianBg
+import com.example.ui.components.PropertyBadge
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
