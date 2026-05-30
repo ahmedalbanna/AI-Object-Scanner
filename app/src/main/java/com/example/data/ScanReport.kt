@@ -15,5 +15,11 @@ data class ScanReport(
     val color: String,
     val estimatedValue: String,
     val weight: String,
-    val description: String
+    val description: String,
+    // Custom user modifications
+    val userTags: String = "",
+    val userNotes: String = "",
+    val userRating: Int = 0, // 0-5 user rating for correctness flag
+    val collectionName: String? = null // Collection grouping
 )
+

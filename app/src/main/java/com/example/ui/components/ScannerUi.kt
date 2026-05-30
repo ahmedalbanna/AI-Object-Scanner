@@ -2,6 +2,7 @@ package com.example.ui.components
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -24,6 +25,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -31,6 +33,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -231,6 +234,7 @@ fun ScannerUi(
             selectedReportForDetails?.let { report ->
                 ReportDetailsModal(
                     report = report,
+                    viewModel = viewModel,
                     onDismiss = { selectedReportForDetails = null },
                     onDelete = {
                         viewModel.deleteReport(report)
@@ -636,18 +640,28 @@ fun HistoryTab(
     onDeleteReport: (ScanReport) -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
+    var selectedCollectionFilter by remember { mutableStateOf<String?>(null) }
     var sortByDate by remember { mutableStateOf(true) } // true: Date, false: Name
     var sortAscending by remember { mutableStateOf(false) } // true: asc (Older / A-Z), false: desc (Newer / Z-A)
 
-    val filteredAndSortedReports = remember(reports, searchQuery, sortByDate, sortAscending) {
-        val filtered = if (searchQuery.isBlank()) {
+    val allCollections = remember(reports) {
+        reports.mapNotNull { it.collectionName }.distinct()
+    }
+
+    val filteredAndSortedReports = remember(reports, searchQuery, sortByDate, sortAscending, selectedCollectionFilter) {
+        val filtered = if (searchQuery.isBlank() && selectedCollectionFilter == null) {
             reports
         } else {
             reports.filter {
-                it.title.contains(searchQuery, ignoreCase = true) ||
-                it.category.contains(searchQuery, ignoreCase = true) ||
-                it.description.contains(searchQuery, ignoreCase = true) ||
-                it.primaryMaterial.contains(searchQuery, ignoreCase = true)
+                val matchesSearch = it.title.contains(searchQuery, ignoreCase = true) ||
+                        it.category.contains(searchQuery, ignoreCase = true) ||
+                        it.description.contains(searchQuery, ignoreCase = true) ||
+                        it.primaryMaterial.contains(searchQuery, ignoreCase = true) ||
+                        it.userTags.contains(searchQuery, ignoreCase = true)
+                
+                val matchesCollection = selectedCollectionFilter == null || it.collectionName == selectedCollectionFilter
+                
+                matchesSearch && matchesCollection
             }
         }
 
@@ -738,6 +752,37 @@ fun HistoryTab(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
                     )
+
+                    // Collection filters
+                    if (allCollections.isNotEmpty()) {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            item {
+                                FilterChip(
+                                    selected = selectedCollectionFilter == null,
+                                    onClick = { selectedCollectionFilter = null },
+                                    label = { Text("All Scans") },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
+                                        selectedLabelColor = NeonCyan
+                                    )
+                                )
+                            }
+                            items(allCollections) { coll ->
+                                FilterChip(
+                                    selected = selectedCollectionFilter == coll,
+                                    onClick = { selectedCollectionFilter = coll },
+                                    label = { Text(coll) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
+                                        selectedLabelColor = NeonCyan
+                                    )
+                                )
+                            }
+                        }
+                    }
 
                     // Sorting controllers
                     Row(
@@ -939,6 +984,27 @@ fun HistoryTab(
                                         color = DarkMuted
                                     )
                                 }
+                                
+                                if (report.collectionName != null || report.userRating > 0) {
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        if (report.collectionName != null) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(Icons.Default.Folder, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(10.dp))
+                                                Spacer(modifier = Modifier.width(2.dp))
+                                                Text(report.collectionName, style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp), color = NeonCyan)
+                                            }
+                                        }
+                                        if (report.userRating > 0) {
+                                            Row {
+                                                repeat(report.userRating) {
+                                                    Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(10.dp))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = report.title,
@@ -1265,9 +1331,19 @@ fun ErrorOverlayDialog(
 @Composable
 fun ReportDetailsModal(
     report: ScanReport,
+    viewModel: ScanViewModel,
     onDismiss: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val context = LocalContext.current
+    val allCollections by viewModel.allCollections.collectAsState()
+    
+    var isEditing by remember { mutableStateOf(false) }
+    var editedTags by remember { mutableStateOf(report.userTags) }
+    var editedNotes by remember { mutableStateOf(report.userNotes) }
+    var editedRating by remember { mutableIntStateOf(report.userRating) }
+    var selectedCollection by remember { mutableStateOf(report.collectionName) }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1307,7 +1383,6 @@ fun ReportDetailsModal(
                                 )
                             }
                         } else {
-                            // Online Asset URL
                             AsyncImage(
                                 model = report.imageUrl,
                                 contentDescription = report.title,
@@ -1337,6 +1412,24 @@ fun ReportDetailsModal(
                             text = report.category.uppercase(),
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = NeonCyan)
                         )
+                    }
+
+                    // Share button
+                    IconButton(
+                        onClick = {
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_SUBJECT, "AI Object Scan: ${report.title}")
+                                putExtra(Intent.EXTRA_TEXT, viewModel.formatReportForSharing(report))
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent, "Share Scan Report"))
+                        },
+                        modifier = Modifier
+                            .padding(12.dp)
+                            .align(Alignment.TopStart)
+                            .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                    ) {
+                        Icon(Icons.Default.Share, contentDescription = "Share", tint = NeonCyan, modifier = Modifier.size(20.dp))
                     }
 
                     // Gradient under title
@@ -1375,58 +1468,340 @@ fun ReportDetailsModal(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = DarkMuted
                             )
-                        }
-                    }
-
-                    // Key properties grid layout (Custom badges)
-                    item {
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Text(
-                                text = "DETERMINED PHYSICAL ATTRIBUTES",
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
-                                color = NeonCyan
-                            )
-
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                                PropertyBadge(Icons.Default.Widgets, "Primary Material", report.primaryMaterial, Modifier.weight(1f))
-                                PropertyBadge(Icons.Default.Straighten, "Dimensions", report.dimensions, Modifier.weight(1f))
-                            }
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                                PropertyBadge(Icons.Default.Palette, "Color Spectrum", report.color, Modifier.weight(1f))
-                                PropertyBadge(Icons.Default.FitnessCenter, "Weight Density", report.weight, Modifier.weight(1f))
-                            }
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                                PropertyBadge(Icons.Default.LocalMall, "Estimated Value", report.estimatedValue, Modifier.weight(1f))
+                            
+                            if (selectedCollection != null) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Folder, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = selectedCollection ?: "Untracked",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = NeonCyan
+                                    )
+                                }
                             }
                         }
                     }
 
-                    // Insight narrative section
-                    item {
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = "MOLECULAR & CHARACTERISTIC REPORT",
-                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
-                                color = NeonCyan
-                            )
+                    if (isEditing) {
+                        item {
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text(
+                                    text = "EDIT SCAN METADATA",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
+                                    color = NeonCyan
+                                )
+                                
+                                // Rating
+                                Column {
+                                    Text("Correctness Rating", style = MaterialTheme.typography.labelSmall, color = DarkMuted)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Row {
+                                        for (i in 1..5) {
+                                            IconButton(onClick = { editedRating = i }, modifier = Modifier.size(32.dp)) {
+                                                Icon(
+                                                    imageVector = if (i <= editedRating) Icons.Default.Star else Icons.Default.StarOutline,
+                                                    contentDescription = null,
+                                                    tint = if (i <= editedRating) Color(0xFFFFD700) else DarkMuted
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                // Collection
+                                Column {
+                                    Text("Assign to Collection", style = MaterialTheme.typography.labelSmall, color = DarkMuted)
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        item {
+                                            FilterChip(
+                                                selected = selectedCollection == null,
+                                                onClick = { selectedCollection = null },
+                                                label = { Text("None") },
+                                                colors = FilterChipDefaults.filterChipColors(
+                                                    selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
+                                                    selectedLabelColor = NeonCyan
+                                                )
+                                            )
+                                        }
+                                        items(allCollections) { collection ->
+                                            FilterChip(
+                                                selected = selectedCollection == collection,
+                                                onClick = { selectedCollection = collection },
+                                                label = { Text(collection) },
+                                                colors = FilterChipDefaults.filterChipColors(
+                                                    selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
+                                                    selectedLabelColor = NeonCyan
+                                                )
+                                            )
+                                        }
+                                        item {
+                                            var showAddDialog by remember { mutableStateOf(false) }
+                                            AssistChip(
+                                                onClick = { showAddDialog = true },
+                                                label = { Text("New +") },
+                                                colors = AssistChipDefaults.assistChipColors(labelColor = NeonCyan)
+                                            )
+                                            if (showAddDialog) {
+                                                var newCollName by remember { mutableStateOf("") }
+                                                AlertDialog(
+                                                    onDismissRequest = { showAddDialog = false },
+                                                    title = { Text("New Collection") },
+                                                    text = {
+                                                        OutlinedTextField(
+                                                            value = newCollName,
+                                                            onValueChange = { newCollName = it },
+                                                            placeholder = { Text("Collection name") }
+                                                        )
+                                                    },
+                                                    confirmButton = {
+                                                        TextButton(onClick = {
+                                                            if (newCollName.isNotBlank()) {
+                                                                selectedCollection = newCollName
+                                                            }
+                                                            showAddDialog = false
+                                                        }) { Text("Create") }
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
 
-                            Box(
+                                OutlinedTextField(
+                                    value = editedTags,
+                                    onValueChange = { editedTags = it },
+                                    label = { Text("Custom Tags (comma separated)") },
+                                    placeholder = { Text("vintage, metal, office...") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        unfocusedTextColor = Color.White,
+                                        focusedTextColor = Color.White,
+                                        focusedBorderColor = NeonCyan,
+                                        unfocusedBorderColor = BorderColor
+                                    )
+                                )
+
+                                OutlinedTextField(
+                                    value = editedNotes,
+                                    onValueChange = { editedNotes = it },
+                                    label = { Text("Research Notes") },
+                                    placeholder = { Text("Observation details...") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    minLines = 3,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        unfocusedTextColor = Color.White,
+                                        focusedTextColor = Color.White,
+                                        focusedBorderColor = NeonCyan,
+                                        unfocusedBorderColor = BorderColor
+                                    )
+                                )
+                            }
+                        }
+                    } else {
+                        // Rating & Tags Display
+                        if (report.userRating > 0 || report.userTags.isNotBlank()) {
+                            item {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (report.userRating > 0) {
+                                        Row {
+                                            repeat(report.userRating) {
+                                                Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(16.dp))
+                                            }
+                                        }
+                                    }
+                                    
+                                    if (report.userTags.isNotBlank()) {
+                                        Text(
+                                            text = report.userTags.split(",").joinToString(" #", prefix = "#"),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = NeonCyan,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Key properties grid layout
+                        item {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text(
+                                    text = "DETERMINED PHYSICAL ATTRIBUTES",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
+                                    color = NeonCyan
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                                    PropertyBadge(Icons.Default.Widgets, "Primary Material", report.primaryMaterial, Modifier.weight(1f))
+                                    PropertyBadge(Icons.Default.Straighten, "Dimensions", report.dimensions, Modifier.weight(1f))
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                                    PropertyBadge(Icons.Default.Palette, "Color Spectrum", report.color, Modifier.weight(1f))
+                                    PropertyBadge(Icons.Default.FitnessCenter, "Weight Density", report.weight, Modifier.weight(1f))
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                                    PropertyBadge(Icons.Default.LocalMall, "Estimated Value", report.estimatedValue, Modifier.weight(1f))
+                                }
+                            }
+                        }
+
+                        // Insight narrative section
+                        item {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = "MOLECULAR & CHARACTERISTIC REPORT",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
+                                    color = NeonCyan
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(ObsidianCard)
+                                        .border(1.dp, BorderColor, RoundedCornerShape(12.dp))
+                                        .padding(14.dp)
+                                ) {
+                                    Text(
+                                        text = report.description,
+                                        style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp),
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                        }
+
+                        // User Notes display
+                        if (report.userNotes.isNotBlank()) {
+                            item {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(
+                                        text = "USER OBSERVATIONS",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
+                                        color = NeonCyan
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(ObsidianCard.copy(alpha = 0.5f))
+                                            .border(1.dp, BorderColor, RoundedCornerShape(12.dp))
+                                            .padding(14.dp)
+                                    ) {
+                                        Text(text = report.userNotes, style = MaterialTheme.typography.bodyMedium, color = Color.White)
+                                    }
+                                }
+                            }
+                        }
+
+                        // Feedback Section
+                        item {
+                            val feedback by viewModel.getFeedbackForReport(report.id).collectAsState(initial = null)
+                            
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .padding(top = 16.dp)
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(ObsidianCard)
-                                    .border(1.dp, BorderColor, RoundedCornerShape(12.dp))
-                                    .padding(14.dp)
+                                    .background(ObsidianCard.copy(alpha = 0.3f))
+                                    .border(1.dp, BorderColor.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                                    .padding(16.dp)
                             ) {
-                                Text(
-                                    text = report.description,
-                                    style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 22.sp),
-                                    color = Color.White
-                                )
+                                if (feedback == null) {
+                                    Text(
+                                        text = "Was this scan accurate?",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = Color.White
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                        var showCorrection by remember { mutableStateOf(false) }
+                                        var isPositive by remember { mutableStateOf(true) }
+                                        
+                                        IconButton(
+                                            onClick = { 
+                                                isPositive = true
+                                                showCorrection = true 
+                                            },
+                                            modifier = Modifier.background(NeonCyan.copy(alpha = 0.1f), CircleShape)
+                                        ) {
+                                            Icon(Icons.Default.ThumbUp, contentDescription = "Accurate", tint = NeonCyan)
+                                        }
+                                        IconButton(
+                                            onClick = { 
+                                                isPositive = false
+                                                showCorrection = true 
+                                            },
+                                            modifier = Modifier.background(Color(0xFFFF5252).copy(alpha = 0.1f), CircleShape)
+                                        ) {
+                                            Icon(Icons.Default.ThumbDown, contentDescription = "Inaccurate", tint = Color(0xFFFF5252))
+                                        }
+                                        
+                                        if (showCorrection) {
+                                            var correctionText by remember { mutableStateOf("") }
+                                            AlertDialog(
+                                                onDismissRequest = { showCorrection = false },
+                                                containerColor = ObsidianBg,
+                                                title = { Text("Finalize Feedback", color = Color.White) },
+                                                text = {
+                                                    OutlinedTextField(
+                                                        value = correctionText,
+                                                        onValueChange = { correctionText = it },
+                                                        label = { Text("Optional correction / notes") },
+                                                        colors = OutlinedTextFieldDefaults.colors(
+                                                            unfocusedTextColor = Color.White,
+                                                            focusedTextColor = Color.White,
+                                                            focusedBorderColor = NeonCyan,
+                                                            unfocusedBorderColor = BorderColor
+                                                        )
+                                                    )
+                                                },
+                                                confirmButton = {
+                                                    TextButton(onClick = {
+                                                        viewModel.saveFeedback(report.id, isPositive, correctionText)
+                                                        showCorrection = false
+                                                    }) {
+                                                        Text("Submit", color = NeonCyan)
+                                                    }
+                                                },
+                                                dismissButton = {
+                                                    TextButton(onClick = { showCorrection = false }) {
+                                                        Text("Cancel", color = DarkMuted)
+                                                    }
+                                                }
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = if (feedback!!.isPositive) Icons.Default.CheckCircle else Icons.Default.Cancel,
+                                            contentDescription = null,
+                                            tint = if (feedback!!.isPositive) NeonCyan else Color(0xFFFF5252),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = if (feedback!!.isPositive) "Rated Accurate" else "Rated Inaccurate",
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = Color.White
+                                        )
+                                    }
+                                    if (feedback!!.correction.isNotBlank()) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = "Correction: ${feedback!!.correction}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = DarkMuted
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -1441,22 +1816,66 @@ fun ReportDetailsModal(
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    IconButton(
-                        onClick = onDelete,
-                        modifier = Modifier
-                            .background(Color(0x11FF5252), RoundedCornerShape(10.dp))
-                            .border(1.dp, Color(0xFFFF5252).copy(alpha = 0.3f), RoundedCornerShape(10.dp))
-                    ) {
-                        Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete", tint = Color(0xFFFF5252))
-                    }
+                    if (isEditing) {
+                        OutlinedButton(
+                            onClick = { isEditing = false },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, BorderColor),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                        ) {
+                            Text("Discard")
+                        }
+                        Button(
+                            onClick = {
+                                viewModel.updateReport(report.copy(
+                                    userTags = editedTags,
+                                    userNotes = editedNotes,
+                                    userRating = editedRating,
+                                    collectionName = selectedCollection
+                                ))
+                                isEditing = false
+                                // We might want to refresh the report in local state or just wait for DB flow
+                                // For now, we assume DB flow handles it but we can't easily "copy" the report back to the parent without a callback
+                                // Let's close and let the user re-open if they want, or just wait for flow.
+                                onDismiss() 
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = ObsidianBg),
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Save Changes", fontWeight = FontWeight.Bold)
+                        }
+                    } else {
+                        IconButton(
+                            onClick = onDelete,
+                            modifier = Modifier
+                                .background(Color(0x11FF5252), RoundedCornerShape(10.dp))
+                                .border(1.dp, Color(0xFFFF5252).copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                        ) {
+                            Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete", tint = Color(0xFFFF5252))
+                        }
 
-                    Button(
-                        onClick = onDismiss,
-                        colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = ObsidianBg),
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text("Close Report", fontWeight = FontWeight.Bold)
+                        Button(
+                            onClick = { isEditing = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = ObsidianCard, contentColor = NeonCyan),
+                            modifier = Modifier.weight(1f),
+                            border = BorderStroke(1.dp, NeonCyan.copy(alpha = 0.3f)),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Edit Metadata")
+                        }
+
+                        Button(
+                            onClick = onDismiss,
+                            colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = ObsidianBg),
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Close", fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }

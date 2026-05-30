@@ -17,6 +17,7 @@ import com.example.api.Part
 import com.example.api.RetrofitClient
 import com.example.data.AppDatabase
 import com.example.data.ScanReport
+import com.example.data.ScanFeedback
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -53,6 +54,13 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
             initialValue = emptyList()
         )
 
+    val allCollections: StateFlow<List<String>> = dao.getAllCollections()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     private val _scanState = MutableStateFlow<ScanUiState>(ScanUiState.Idle)
     val scanState: StateFlow<ScanUiState> = _scanState.asStateFlow()
 
@@ -69,6 +77,53 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         _customApiKey.value = key
         val prefs = getApplication<Application>().getSharedPreferences("scanner_prefs", Application.MODE_PRIVATE)
         prefs.edit().putString("gemini_key", key).apply()
+    }
+
+    fun updateReport(report: ScanReport) {
+        viewModelScope.launch(Dispatchers.IO) {
+            dao.updateReport(report)
+        }
+    }
+
+    private val feedbackDao = AppDatabase.getDatabase(application).scanFeedbackDao()
+
+    fun saveFeedback(reportId: Int, isPositive: Boolean, correction: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            feedbackDao.insertFeedback(ScanFeedback(reportId = reportId, isPositive = isPositive, correction = correction))
+        }
+    }
+
+    fun getFeedbackForReport(reportId: Int) = feedbackDao.getFeedbackForReport(reportId)
+
+    private suspend fun fetchWikipediaDetails(title: String): String? {
+        return try {
+            val response = com.example.api.WikipediaClient.service.getSummary(title)
+            response.query?.pages?.values?.firstOrNull()?.extract
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    fun formatReportForSharing(report: ScanReport): String {
+        return """
+            --- AI Object Scan Report ---
+            Object: ${report.title}
+            Category: ${report.category}
+            
+            [Analysis Results]
+            Material: ${report.primaryMaterial}
+            Dimensions: ${report.dimensions}
+            Color: ${report.color}
+            Est. Value: ${report.estimatedValue}
+            Weight: ${report.weight}
+            
+            [Description]
+            ${report.description}
+            
+            ${if (report.userNotes.isNotBlank()) "[User Notes]\n${report.userNotes}" else ""}
+            ${if (report.userTags.isNotBlank()) "[Tags] ${report.userTags}" else ""}
+            ---
+        """.trimIndent()
     }
 
     private fun getEffectiveApiKey(): String {

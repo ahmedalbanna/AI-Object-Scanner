@@ -11,6 +11,12 @@ interface ScanReportDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertReport(report: ScanReport): Long
 
+    @Update
+    suspend fun updateReport(report: ScanReport)
+
+    @Query("SELECT DISTINCT collectionName FROM scan_reports WHERE collectionName IS NOT NULL")
+    fun getAllCollections(): Flow<List<String>>
+
     @Delete
     suspend fun deleteReport(report: ScanReport)
 
