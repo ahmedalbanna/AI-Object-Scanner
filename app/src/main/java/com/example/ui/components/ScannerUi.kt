@@ -151,48 +151,74 @@ fun ScannerUi(
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        IconButton(
-                            onClick = { /* Could open a side menu */ },
-                            modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
-                        ) {
+            TopAppBar(
+                navigationIcon = {
+                    if (activeTab == 2) {
+                        IconButton(onClick = { activeTab = 0 }) {
                             Icon(
-                                imageVector = Icons.Default.FilterCenterFocus,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = MaterialTheme.colorScheme.primary
                             )
                         }
-                        Text(
-                            text = "OBJECT AI",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp
-                            ),
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
+                    } else {
+                        IconButton(
+                            onClick = { /* Could open logo info or just be decorative */ },
+                            modifier = Modifier.padding(start = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Adjust,
+                                contentDescription = "Logo",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
                     }
+                },
+                title = {
+                    Text(
+                        text = when (activeTab) {
+                            0 -> "SCANNER"
+                            1 -> "HISTORY"
+                            2 -> "SET API KEY"
+                            else -> "OBJECT AI"
+                        },
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 1.5.sp,
+                            fontFamily = OrbitronFont
+                        ),
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
                 },
                 actions = {
-                    IconButton(
-                        onClick = { activeTab = 2 },
-                        modifier = Modifier.padding(end = 8.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (customKey.isNotEmpty()) Icons.Default.VpnKey else Icons.Outlined.Key,
-                            contentDescription = "API Keys",
-                            tint = if (customKey.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                        )
+                    // Contextual actions based on tab
+                    if (activeTab == 0) {
+                        IconButton(onClick = { /* Scrolling to demo library could be an option */ }) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = "Demo Catalog",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+
+                    if (activeTab != 2) {
+                        IconButton(
+                            onClick = { activeTab = 2 },
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (customKey.isNotEmpty()) Icons.Default.VpnKey else Icons.Outlined.Key,
+                                contentDescription = "API Keys",
+                                tint = if (customKey.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         },
@@ -692,7 +718,7 @@ fun ScannerTab(
                                     Text(
                                         text = sample.category,
                                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                                        color = NeonCyan
+                                        color = MaterialTheme.colorScheme.primary
                                     )
                                 }
                             }
@@ -703,7 +729,7 @@ fun ScannerTab(
                                 Text(
                                     text = sample.title,
                                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = Color.White,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -716,12 +742,12 @@ fun ScannerTab(
                                     Text(
                                         text = "Scan demo",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = NeonCyan
+                                        color = MaterialTheme.colorScheme.primary
                                     )
                                     Icon(
                                         imageVector = Icons.Default.ChevronRight,
                                         contentDescription = null,
-                                        tint = NeonCyan,
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(16.dp)
                                     )
                                 }
@@ -972,8 +998,8 @@ fun HistoryTab(
                                         onClick = { selectedCollectionFilter = null },
                                         label = { Text("All Scans") },
                                         colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
-                                            selectedLabelColor = NeonCyan
+                                            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                            selectedLabelColor = MaterialTheme.colorScheme.primary
                                         )
                                     )
                                 }
@@ -983,8 +1009,8 @@ fun HistoryTab(
                                         onClick = { selectedCollectionFilter = coll },
                                         label = { Text(coll) },
                                         colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
-                                            selectedLabelColor = NeonCyan
+                                            selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                            selectedLabelColor = MaterialTheme.colorScheme.primary
                                         )
                                     )
                                 }
@@ -1432,11 +1458,13 @@ fun ScanLaserAnimation(modifier: Modifier = Modifier) {
         label = "laser_offset"
     )
 
+    val laserColor = MaterialTheme.colorScheme.primary
+    
     Canvas(modifier = modifier) {
         val yPos = size.height * offsetY
         // Line Laser Laser
         drawLine(
-            color = NeonCyan,
+            color = laserColor,
             start = Offset(0f, yPos),
             end = Offset(size.width, yPos),
             strokeWidth = 6f
@@ -1446,9 +1474,9 @@ fun ScanLaserAnimation(modifier: Modifier = Modifier) {
             brush = Brush.verticalGradient(
                 colors = listOf(
                     Color.Transparent,
-                    NeonCyan.copy(alpha = 0.15f),
-                    NeonCyan.copy(alpha = 0.35f),
-                    NeonCyan.copy(alpha = 0.15f),
+                    laserColor.copy(alpha = 0.15f),
+                    laserColor.copy(alpha = 0.35f),
+                    laserColor.copy(alpha = 0.15f),
                     Color.Transparent
                 ),
                 startY = yPos - 35f,
@@ -1478,8 +1506,8 @@ fun ProcessingOverlayDialog() {
                 modifier = Modifier
                     .size(240.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .border(2.dp, NeonCyan, RoundedCornerShape(16.dp))
-                    .background(ObsidianBg)
+                    .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.background)
             ) {
                 // Background animated scanner laser line
                 ScanLaserAnimation(modifier = Modifier.fillMaxSize())
@@ -1494,11 +1522,11 @@ fun ProcessingOverlayDialog() {
                     Icon(
                         imageVector = Icons.Default.FilterCenterFocus,
                         contentDescription = null,
-                        tint = NeonCyan,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(48.dp)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    CircularProgressIndicator(color = NeonCyan, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                 }
             }
 
@@ -1624,57 +1652,59 @@ fun ReportDetailsScreen(
         modifier = Modifier.fillMaxSize()
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Enhanced Custom Top Bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(horizontal = 4.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onDismiss) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = MaterialTheme.colorScheme.primary
+            // Standard TopAppBar for better consistency
+            TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                },
+                title = {
+                    Text(
+                        text = if (isEditing) "EDIT SCAN" else report.title.uppercase(),
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp,
+                            fontFamily = OrbitronFont
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-                }
-                Text(
-                    text = if (isEditing) "EDIT SCAN" else report.title.uppercase(),
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp,
-                        fontFamily = OrbitronFont
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                
-                if (!isEditing) {
-                    IconButton(onClick = {
-                        val shareIntent = Intent().apply {
-                            action = Intent.ACTION_SEND
-                            putExtra(Intent.EXTRA_TEXT, "Object AI Analysis: ${report.title}\n${report.description}")
-                            type = "text/plain"
+                },
+                actions = {
+                    if (!isEditing) {
+                        IconButton(onClick = {
+                            val shareIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(Intent.EXTRA_TEXT, "Object AI Analysis: ${report.title}\n${report.description}")
+                                type = "text/plain"
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent, "Share Report"))
+                        }) {
+                            Icon(Icons.Default.Share, contentDescription = "Share", tint = MaterialTheme.colorScheme.primary)
                         }
-                        context.startActivity(Intent.createChooser(shareIntent, "Share Report"))
-                    }) {
-                        Icon(Icons.Default.Share, contentDescription = "Share", tint = MaterialTheme.colorScheme.primary)
+                        IconButton(onClick = { isEditing = true }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary)
+                        }
+                        IconButton(onClick = onDelete) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color(0xFFFF5252))
+                        }
+                    } else {
+                        IconButton(onClick = { isEditing = false }) {
+                            Icon(Icons.Default.Close, contentDescription = "Cancel", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
-                    IconButton(onClick = { isEditing = true }) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary)
-                    }
-                    IconButton(onClick = onDelete) {
-                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color(0xFFFF5252))
-                    }
-                } else {
-                    IconButton(onClick = { isEditing = false }) {
-                        Icon(Icons.Default.Close, contentDescription = "Cancel", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                )
+            )
 
             Box(modifier = Modifier.weight(1f)) {
                 LazyColumn(
