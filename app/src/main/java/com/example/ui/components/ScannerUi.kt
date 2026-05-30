@@ -2027,7 +2027,9 @@ fun ReportDetailsModal(
                         // Feedback Section
                         item {
                             val feedback by viewModel.getFeedbackForReport(report.id).collectAsState(initial = null)
-                            
+                            var showCorrectionDialog by remember { mutableStateOf(false) }
+                            var isPositiveFeedback by remember { mutableStateOf(true) }
+
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -2039,90 +2041,169 @@ fun ReportDetailsModal(
                             ) {
                                 if (feedback == null) {
                                     Text(
-                                        text = "Was this scan accurate?",
-                                        style = MaterialTheme.typography.titleSmall,
+                                        text = "Accuracy Assessment",
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                         color = Color.White
                                     )
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                        var showCorrection by remember { mutableStateOf(false) }
-                                        var isPositive by remember { mutableStateOf(true) }
-                                        
-                                        IconButton(
-                                            onClick = { 
-                                                isPositive = true
-                                                showCorrection = true 
+                                    Text(
+                                        text = "Was the AI's identification correct?",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = DarkMuted
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        Button(
+                                            onClick = {
+                                                isPositiveFeedback = true
+                                                showCorrectionDialog = true
                                             },
-                                            modifier = Modifier.background(NeonCyan.copy(alpha = 0.1f), CircleShape)
+                                            modifier = Modifier.weight(1f),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = NeonCyan.copy(alpha = 0.1f),
+                                                contentColor = NeonCyan
+                                            ),
+                                            shape = RoundedCornerShape(8.dp),
+                                            border = BorderStroke(1.dp, NeonCyan.copy(alpha = 0.3f))
                                         ) {
-                                            Icon(Icons.Default.ThumbUp, contentDescription = "Accurate", tint = NeonCyan)
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text("Correct", style = MaterialTheme.typography.labelLarge)
+                                            }
                                         }
-                                        IconButton(
-                                            onClick = { 
-                                                isPositive = false
-                                                showCorrection = true 
+
+                                        Button(
+                                            onClick = {
+                                                isPositiveFeedback = false
+                                                showCorrectionDialog = true
                                             },
-                                            modifier = Modifier.background(Color(0xFFFF5252).copy(alpha = 0.1f), CircleShape)
+                                            modifier = Modifier.weight(1f),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = Color(0xFFFF5252).copy(alpha = 0.1f),
+                                                contentColor = Color(0xFFFF5252)
+                                            ),
+                                            shape = RoundedCornerShape(8.dp),
+                                            border = BorderStroke(1.dp, Color(0xFFFF5252).copy(alpha = 0.3f))
                                         ) {
-                                            Icon(Icons.Default.ThumbDown, contentDescription = "Inaccurate", tint = Color(0xFFFF5252))
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text("Incorrect", style = MaterialTheme.typography.labelLarge)
+                                            }
                                         }
-                                        
-                                        if (showCorrection) {
-                                            var correctionText by remember { mutableStateOf("") }
-                                            AlertDialog(
-                                                onDismissRequest = { showCorrection = false },
-                                                containerColor = ObsidianBg,
-                                                title = { Text("Finalize Feedback", color = Color.White) },
-                                                text = {
+                                    }
+
+                                    if (showCorrectionDialog) {
+                                        var suggestedName by remember { mutableStateOf("") }
+                                        var extraDetails by remember { mutableStateOf("") }
+
+                                        AlertDialog(
+                                            onDismissRequest = { showCorrectionDialog = false },
+                                            containerColor = ObsidianCard,
+                                            title = {
+                                                Text(
+                                                    text = if (isPositiveFeedback) "Positive Feedback" else "Suggest Correction",
+                                                    color = Color.White
+                                                )
+                                            },
+                                            text = {
+                                                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                                    if (!isPositiveFeedback) {
+                                                        Text(
+                                                            "Help us improve! What is the correct name of this object?",
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                            color = DarkMuted
+                                                        )
+                                                        OutlinedTextField(
+                                                            value = suggestedName,
+                                                            onValueChange = { suggestedName = it },
+                                                            label = { Text("Correct Object Name") },
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            colors = OutlinedTextFieldDefaults.colors(
+                                                                focusedTextColor = Color.White,
+                                                                unfocusedTextColor = Color.White,
+                                                                focusedBorderColor = NeonCyan,
+                                                                unfocusedBorderColor = BorderColor
+                                                            )
+                                                        )
+                                                    }
                                                     OutlinedTextField(
-                                                        value = correctionText,
-                                                        onValueChange = { correctionText = it },
-                                                        label = { Text("Optional correction / notes") },
+                                                        value = extraDetails,
+                                                        onValueChange = { extraDetails = it },
+                                                        label = { Text(if (isPositiveFeedback) "Additional Praise/Notes" else "Extra Details / Why it was wrong?") },
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        minLines = 2,
                                                         colors = OutlinedTextFieldDefaults.colors(
-                                                            unfocusedTextColor = Color.White,
                                                             focusedTextColor = Color.White,
+                                                            unfocusedTextColor = Color.White,
                                                             focusedBorderColor = NeonCyan,
                                                             unfocusedBorderColor = BorderColor
                                                         )
                                                     )
-                                                },
-                                                confirmButton = {
-                                                    TextButton(onClick = {
-                                                        viewModel.saveFeedback(report.id, isPositive, correctionText)
-                                                        showCorrection = false
-                                                    }) {
-                                                        Text("Submit", color = NeonCyan)
-                                                    }
-                                                },
-                                                dismissButton = {
-                                                    TextButton(onClick = { showCorrection = false }) {
-                                                        Text("Cancel", color = DarkMuted)
-                                                    }
                                                 }
-                                            )
-                                        }
+                                            },
+                                            confirmButton = {
+                                                TextButton(
+                                                    onClick = {
+                                                        val fullCorrection = if (!isPositiveFeedback && suggestedName.isNotBlank()) {
+                                                            "Suggested Name: $suggestedName\nDetails: $extraDetails"
+                                                        } else {
+                                                            extraDetails
+                                                        }
+                                                        viewModel.saveFeedback(report.id, isPositiveFeedback, fullCorrection)
+                                                        showCorrectionDialog = false
+                                                    },
+                                                    colors = ButtonDefaults.textButtonColors(contentColor = NeonCyan)
+                                                ) {
+                                                    Text("Submit Feedback")
+                                                }
+                                            },
+                                            dismissButton = {
+                                                TextButton(onClick = { showCorrectionDialog = false }) {
+                                                    Text("Cancel", color = DarkMuted)
+                                                }
+                                            }
+                                        )
                                     }
                                 } else {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(
-                                            imageVector = if (feedback!!.isPositive) Icons.Default.CheckCircle else Icons.Default.Cancel,
-                                            contentDescription = null,
-                                            tint = if (feedback!!.isPositive) NeonCyan else Color(0xFFFF5252),
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = if (feedback!!.isPositive) Icons.Default.CheckCircle else Icons.Default.Cancel,
+                                                contentDescription = null,
+                                                tint = if (feedback!!.isPositive) NeonCyan else Color(0xFFFF5252),
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Text(
+                                                text = if (feedback!!.isPositive) "Rated Accurate" else "Rated Inaccurate",
+                                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                                color = Color.White
+                                            )
+                                        }
+                                        if (feedback!!.correction.isNotBlank()) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(Color.Black.copy(alpha = 0.2f))
+                                                    .padding(12.dp)
+                                            ) {
+                                                Text(
+                                                    text = feedback!!.correction,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = DarkMuted
+                                                )
+                                            }
+                                        }
                                         Text(
-                                            text = if (feedback!!.isPositive) "Rated Accurate" else "Rated Inaccurate",
-                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                            color = Color.White
-                                        )
-                                    }
-                                    if (feedback!!.correction.isNotBlank()) {
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = "Correction: ${feedback!!.correction}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = DarkMuted
+                                            text = "Logged for model retraining optimization.",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = NeonCyan.copy(alpha = 0.7f),
+                                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
                                         )
                                     }
                                 }
