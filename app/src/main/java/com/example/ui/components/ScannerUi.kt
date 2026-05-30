@@ -330,7 +330,7 @@ fun ScannerTab(
     val cameraExecutor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
     val imageCapture = remember { ImageCapture.Builder().build() }
 
-    var gatheredBitmaps = remember { mutableStateListOf<Bitmap>() }
+    var gatheredImagePaths = remember { mutableStateListOf<String>() }
     var userNote by remember { mutableStateOf("") }
 
     val demoSamples = listOf(
@@ -416,12 +416,7 @@ fun ScannerTab(
                                         cameraExecutor,
                                         object : ImageCapture.OnImageSavedCallback {
                                             override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                                                val savedBitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
-                                                if (savedBitmap != null) {
-                                                    gatheredBitmaps.add(savedBitmap)
-                                                } else {
-                                                    Toast.makeText(context, "Error reading photo", Toast.LENGTH_SHORT).show()
-                                                }
+                                                gatheredImagePaths.add(photoFile.absolutePath)
                                             }
 
                                             override fun onError(exception: ImageCaptureException) {
@@ -499,14 +494,14 @@ fun ScannerTab(
         }
 
         // Captured Images Preview & Note
-        if (gatheredBitmaps.isNotEmpty()) {
+        if (gatheredImagePaths.isNotEmpty()) {
             item {
                 Column(
                     modifier = Modifier.fillMaxWidth().background(ObsidianSurface, RoundedCornerShape(12.dp)).padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "GATHERED PERSPECTIVES (${gatheredBitmaps.size})",
+                        text = "GATHERED PERSPECTIVES (${gatheredImagePaths.size})",
                         style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.sp, fontWeight = FontWeight.Bold),
                         color = NeonCyan
                     )
@@ -515,16 +510,16 @@ fun ScannerTab(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        items(gatheredBitmaps) { bitmap ->
+                        items(gatheredImagePaths) { path ->
                             Box(modifier = Modifier.size(80.dp).clip(RoundedCornerShape(8.dp))) {
-                                Image(
-                                    bitmap = bitmap.asImageBitmap(),
+                                AsyncImage(
+                                    model = path,
                                     contentDescription = null,
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier.fillMaxSize()
                                 )
                                 IconButton(
-                                    onClick = { gatheredBitmaps.remove(bitmap) },
+                                    onClick = { gatheredImagePaths.remove(path) },
                                     modifier = Modifier.align(Alignment.TopEnd).size(24.dp).background(Color.Black.copy(0.6f), CircleShape)
                                 ) {
                                     Icon(Icons.Default.Close, contentDescription = "Remove", tint = Color.White, modifier = Modifier.size(14.dp))
@@ -553,8 +548,8 @@ fun ScannerTab(
                     Button(
                         onClick = {
                             captureLocation { lat, lon ->
-                                viewModel.scanCapturedImages(gatheredBitmaps.toList(), userNote, lat, lon)
-                                gatheredBitmaps.clear()
+                                viewModel.scanCapturedPaths(gatheredImagePaths.toList(), userNote, lat, lon)
+                                gatheredImagePaths.clear()
                                 userNote = ""
                             }
                         },
@@ -1621,25 +1616,12 @@ fun ReportDetailsModal(
                         .background(ObsidianCard)
                 ) {
                     if (report.imageUrl != null) {
-                        val file = File(report.imageUrl)
-                        if (file.exists()) {
-                            val bitmap = BitmapFactory.decodeFile(file.absolutePath)
-                            if (bitmap != null) {
-                                Image(
-                                    bitmap = bitmap.asImageBitmap(),
-                                    contentDescription = report.title,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-                        } else {
-                            AsyncImage(
-                                model = report.imageUrl,
-                                contentDescription = report.title,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
+                        AsyncImage(
+                            model = report.imageUrl,
+                            contentDescription = report.title,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
                     } else {
                         Box(
                             modifier = Modifier.fillMaxSize(),
@@ -2140,7 +2122,7 @@ fun ReportDetailsModal(
                     if (isEditing) {
                         OutlinedButton(
                             onClick = { isEditing = false },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(0.8f),
                             shape = RoundedCornerShape(10.dp),
                             border = BorderStroke(1.dp, BorderColor),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
@@ -2156,13 +2138,10 @@ fun ReportDetailsModal(
                                     collectionName = selectedCollection
                                 ))
                                 isEditing = false
-                                // We might want to refresh the report in local state or just wait for DB flow
-                                // For now, we assume DB flow handles it but we can't easily "copy" the report back to the parent without a callback
-                                // Let's close and let the user re-open if they want, or just wait for flow.
                                 onDismiss() 
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = NeonCyan, contentColor = ObsidianBg),
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1.2f),
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Text("Save Changes", fontWeight = FontWeight.Bold)
@@ -2171,10 +2150,12 @@ fun ReportDetailsModal(
                         OutlinedButton(
                             onClick = onDelete,
                             shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.size(height = 44.dp, width = 50.dp),
                             border = BorderStroke(1.dp, Color(0xFFFF5252).copy(alpha = 0.3f)),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF5252))
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF5252)),
+                            contentPadding = PaddingValues(0.dp)
                         ) {
-                            Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete")
+                            Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete", modifier = Modifier.size(20.dp))
                         }
 
                         Button(
@@ -2182,11 +2163,12 @@ fun ReportDetailsModal(
                             colors = ButtonDefaults.buttonColors(containerColor = ObsidianCard, contentColor = NeonCyan),
                             modifier = Modifier.weight(1f),
                             border = BorderStroke(1.dp, NeonCyan.copy(alpha = 0.3f)),
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp)
                         ) {
                             Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Edit Metadata")
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Edit", maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
 
                         Button(

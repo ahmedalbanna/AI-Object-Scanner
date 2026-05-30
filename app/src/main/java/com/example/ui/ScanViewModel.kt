@@ -207,6 +207,26 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun scanCapturedPaths(paths: List<String>, userNote: String = "", latitude: Double? = null, longitude: Double? = null) {
+        viewModelScope.launch {
+            _scanState.value = ScanUiState.Processing
+            try {
+                val bitmaps = withContext(Dispatchers.IO) {
+                    paths.mapNotNull { path ->
+                        BitmapFactory.decodeFile(path)
+                    }
+                }
+                if (bitmaps.isEmpty()) {
+                    _scanState.value = ScanUiState.Error("Failed to decode captured photos.")
+                    return@launch
+                }
+                analyzeBitmaps(bitmaps, paths.first(), userNote, latitude, longitude)
+            } catch (e: Exception) {
+                _scanState.value = ScanUiState.Error("Failed to process captured photos: ${e.localizedMessage}")
+            }
+        }
+    }
+
     fun scanCapturedImages(bitmaps: List<Bitmap>, userNote: String = "", latitude: Double? = null, longitude: Double? = null) {
         viewModelScope.launch {
             _scanState.value = ScanUiState.Processing
