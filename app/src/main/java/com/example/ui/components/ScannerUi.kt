@@ -37,6 +37,7 @@ import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -227,6 +228,32 @@ fun ScannerUi(
                         unselectedTextColor = DarkMuted
                     )
                 )
+                NavigationBarItem(
+                    selected = activeTab == 2,
+                    onClick = { activeTab = 2 },
+                    icon = { Icon(Icons.Default.Groups, contentDescription = "Community") },
+                    label = { Text("Community") },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = ObsidianBg,
+                        selectedTextColor = NeonCyan,
+                        indicatorColor = NeonCyan,
+                        unselectedIconColor = DarkMuted,
+                        unselectedTextColor = DarkMuted
+                    )
+                )
+                NavigationBarItem(
+                    selected = activeTab == 3,
+                    onClick = { activeTab = 3 },
+                    icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
+                    label = { Text("Settings") },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = ObsidianBg,
+                        selectedTextColor = NeonCyan,
+                        indicatorColor = NeonCyan,
+                        unselectedIconColor = DarkMuted,
+                        unselectedTextColor = DarkMuted
+                    )
+                )
             }
         },
         containerColor = ObsidianBg,
@@ -263,7 +290,11 @@ fun ScannerUi(
                         onReportSelected = { selectedReportForDetails = it },
                         onDeleteReport = { viewModel.deleteReport(it) }
                     )
-                    2 -> SettingsTab(
+                    2 -> CommunityTab(
+                        viewModel = viewModel,
+                        onReportSelected = { selectedReportForDetails = it }
+                    )
+                    3 -> SettingsTab(
                         viewModel = viewModel,
                         currentKey = customKey,
                         onBack = { activeTab = 0 }
@@ -1557,20 +1588,25 @@ fun ReportDetailsModal(
 
                     // Share button
                     IconButton(
-                        onClick = {
-                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_SUBJECT, "AI Object Scan: ${report.title}")
-                                putExtra(Intent.EXTRA_TEXT, viewModel.formatReportForSharing(report))
-                            }
-                            context.startActivity(Intent.createChooser(shareIntent, "Share Scan Report"))
-                        },
+                        onClick = { viewModel.shareReport(report, context) },
                         modifier = Modifier
                             .padding(12.dp)
                             .align(Alignment.TopStart)
                             .background(Color.Black.copy(alpha = 0.6f), CircleShape)
                     ) {
                         Icon(Icons.Default.Share, contentDescription = "Share", tint = NeonCyan, modifier = Modifier.size(20.dp))
+                    }
+
+                    if (!report.isPublic) {
+                        IconButton(
+                            onClick = { viewModel.makeReportPublic(report) },
+                            modifier = Modifier
+                                .padding(top = 12.dp, start = 56.dp)
+                                .align(Alignment.TopStart)
+                                .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                        ) {
+                            Icon(Icons.Default.Public, contentDescription = "Publish to Community", tint = NeonCyan, modifier = Modifier.size(20.dp))
+                        }
                     }
 
                     // Gradient under title
@@ -1889,6 +1925,82 @@ fun ReportDetailsModal(
                             }
                         }
 
+                        // Community Comments Section
+                        item {
+                            val comments by viewModel.getComments(report.id).collectAsState(initial = emptyList())
+                            var newCommentText by remember { mutableStateOf("") }
+                            
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text(
+                                    text = "COMMUNITY DISCUSSION (${comments.size})",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
+                                    color = NeonCyan
+                                )
+                                
+                                if (comments.isEmpty()) {
+                                    Text("No comments yet. Suggest a correction or ask a question!", color = DarkMuted, style = MaterialTheme.typography.bodySmall)
+                                } else {
+                                    comments.forEach { comment ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier.size(28.dp).clip(CircleShape).background(NeonCyan.copy(alpha = 0.1f)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(comment.authorName.take(1).uppercase(), color = NeonCyan, style = MaterialTheme.typography.labelSmall)
+                                            }
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(comment.authorName, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = Color.White)
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Text(
+                                                        SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(comment.timestamp)),
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = DarkMuted
+                                                    )
+                                                }
+                                                Text(comment.commentText, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.9f))
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OutlinedTextField(
+                                        value = newCommentText,
+                                        onValueChange = { newCommentText = it },
+                                        placeholder = { Text("Add a comment / correction...", style = MaterialTheme.typography.bodySmall) },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(24.dp),
+                                        textStyle = MaterialTheme.typography.bodySmall,
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = NeonCyan,
+                                            unfocusedBorderColor = BorderColor,
+                                            focusedTextColor = Color.White,
+                                            unfocusedTextColor = Color.White
+                                        )
+                                    )
+                                    IconButton(
+                                        onClick = {
+                                            if (newCommentText.isNotBlank()) {
+                                                viewModel.addComment(report.id, "You", newCommentText)
+                                                newCommentText = ""
+                                            }
+                                        },
+                                        modifier = Modifier.background(NeonCyan, CircleShape).size(36.dp)
+                                    ) {
+                                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = ObsidianBg, modifier = Modifier.size(18.dp))
+                                    }
+                                }
+                            }
+                        }
+
                         // User Notes display
                         if (report.userNotes.isNotBlank()) {
                             item {
@@ -2142,6 +2254,203 @@ fun PropertyBadge(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun CommunityTab(
+    viewModel: ScanViewModel,
+    onReportSelected: (ScanReport) -> Unit
+) {
+    val publicScans by viewModel.publicScans.collectAsState()
+    
+    val context = LocalContext.current
+    var activeCategory by remember { mutableStateOf("All") }
+    
+    val categories = remember(publicScans) {
+        listOf("All", "Nearby", "Trending") + publicScans.map { it.category }.distinct()
+    }
+
+    Scaffold(
+        containerColor = ObsidianBg,
+        topBar = {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "COMMUNITY FEED",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = 2.sp),
+                    color = NeonCyan
+                )
+                Text(
+                    text = "Discover what others are scanning",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = DarkMuted
+                )
+            }
+        }
+    ) { padding ->
+        Column(modifier = Modifier.padding(padding)) {
+            ScrollableTabRow(
+                selectedTabIndex = categories.indexOf(activeCategory),
+                containerColor = Color.Transparent,
+                edgePadding = 16.dp,
+                divider = {},
+                indicator = { tabPositions ->
+                    TabRowDefaults.SecondaryIndicator(
+                        Modifier.tabIndicatorOffset(tabPositions[categories.indexOf(activeCategory)]),
+                        color = NeonCyan
+                    )
+                }
+            ) {
+                categories.forEach { cat ->
+                    Tab(
+                        selected = activeCategory == cat,
+                        onClick = { activeCategory = cat },
+                        text = { Text(cat, style = MaterialTheme.typography.labelLarge) },
+                        selectedContentColor = NeonCyan,
+                        unselectedContentColor = DarkMuted
+                    )
+                }
+            }
+
+            val filteredScans = remember(publicScans, activeCategory) {
+                when (activeCategory) {
+                    "All" -> publicScans
+                    "Nearby" -> publicScans.filter { it.latitude != null && it.longitude != null }
+                    "Trending" -> publicScans.sortedByDescending { it.userRating }.take(10)
+                    else -> publicScans.filter { it.category == activeCategory }
+                }
+            }
+
+            if (filteredScans.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No public scans yet. Be the first!", color = DarkMuted)
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(filteredScans) { report ->
+                        CommunityPostItem(
+                            report = report,
+                            viewModel = viewModel,
+                            onClick = { onReportSelected(report) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CommunityPostItem(
+    report: ScanReport,
+    viewModel: ScanViewModel,
+    onClick: () -> Unit
+) {
+    val comments by viewModel.getComments(report.id).collectAsState(initial = emptyList())
+    val context = LocalContext.current
+    
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)),
+        colors = CardDefaults.cardColors(containerColor = ObsidianCard),
+        border = BorderStroke(1.dp, BorderColor)
+    ) {
+        Column {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier.size(32.dp).clip(CircleShape).background(NeonCyan.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(report.authorName.take(1).uppercase(), color = NeonCyan, style = MaterialTheme.typography.labelMedium)
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
+                    Text(report.authorName, style = MaterialTheme.typography.labelLarge, color = Color.White)
+                    Text(
+                        SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()).format(Date(report.timestamp)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = DarkMuted
+                    )
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                IconButton(onClick = { viewModel.shareReport(report, context) }) {
+                    Icon(Icons.Default.Share, contentDescription = "Share", tint = NeonCyan, modifier = Modifier.size(20.dp))
+                }
+            }
+
+            // Image
+            if (report.imageUrl != null) {
+                Box(modifier = Modifier.fillMaxWidth().height(180.dp)) {
+                    val file = File(report.imageUrl)
+                    if (file.exists()) {
+                        val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+                        if (bitmap != null) {
+                            Image(
+                                bitmap = bitmap.asImageBitmap(),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    } else {
+                        AsyncImage(
+                            model = report.imageUrl,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
+            }
+
+            // Content
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text(
+                    text = report.title,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = NeonCyan
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = report.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.8f),
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Interaction bar
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, tint = DarkMuted, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("${comments.size}", style = MaterialTheme.typography.labelSmall, color = DarkMuted)
+                    }
+                    
+                    if (report.latitude != null) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.LocationOn, contentDescription = null, tint = DarkMuted, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Nearby", style = MaterialTheme.typography.labelSmall, color = DarkMuted)
+                        }
+                    }
+                }
             }
         }
     }

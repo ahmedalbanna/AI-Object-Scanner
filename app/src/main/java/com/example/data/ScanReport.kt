@@ -24,6 +24,8 @@ data class ScanReport(
     val dynamicDetail: String = "", // Context-specific (e.g. Care instructions)
     val knowledgeBit: String = "", // Interesting fact
     val latitude: Double? = null,
-    val longitude: Double? = null
+    val longitude: Double? = null,
+    val isPublic: Boolean = false,
+    val authorName: String = "Explorer"
 )
 

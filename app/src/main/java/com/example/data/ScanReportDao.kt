@@ -20,6 +20,12 @@ interface ScanReportDao {
     @Delete
     suspend fun deleteReport(report: ScanReport)
 
+    @Query("SELECT * FROM scan_reports WHERE isPublic = 1 ORDER BY timestamp DESC")
+    fun getAllPublicReports(): Flow<List<ScanReport>>
+
+    @Query("SELECT * FROM scan_reports WHERE isPublic = 1 AND latitude IS NOT NULL AND longitude IS NOT NULL ORDER BY timestamp DESC")
+    fun getPublicNearbyScans(): Flow<List<ScanReport>>
+
     @Query("DELETE FROM scan_reports")
     suspend fun deleteAllReports()
 }
